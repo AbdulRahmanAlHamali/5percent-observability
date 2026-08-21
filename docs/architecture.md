@@ -18,6 +18,8 @@ flowchart TD
   kps --> prometheus["Prometheus<br>metrics storage and query"]
   kps --> grafana["Grafana<br>dashboards"]
   kps --> alertmanager["Alertmanager<br>alert routing"]
+  kps --> grafanaDatasources["Grafana data sources<br>grafana.additionalDataSources"]
+  grafanaDatasources --> grafana
 
   kustomize --> app["sample metrics app<br>fivepercent-observability namespace"]
   app --> metrics["/metrics<br>Prometheus format"]
@@ -37,10 +39,7 @@ flowchart TD
   app --> podlogs["container stdout<br>Kubernetes pod logs"]
   podlogs --> alloy
   alloy --> loki
-
-  kustomize --> lokiDatasource["Grafana data source ConfigMap<br>grafana_datasource=1"]
-  lokiDatasource --> grafana
-  grafana --> loki
+  grafanaDatasources -.-> loki
 ```
 
 ## Runtime Flow
@@ -60,6 +59,7 @@ sequenceDiagram
   Learner->>Make: make monitoring-up
   Make->>Helmfile: sync kube-prometheus-stack
   Helmfile->>Kubernetes: install Prometheus, Grafana, Alertmanager
+  Helmfile->>Grafana: provision Prometheus, Alertmanager, and Loki data sources
   Learner->>Make: make app-up
   Make->>Kubernetes: build, load, and apply sample app manifests
   Kubernetes->>Prometheus: ServiceMonitor exposes scrape configuration
@@ -83,10 +83,10 @@ sequenceDiagram
   Helmfile->>Kubernetes: install Loki StatefulSet and Alloy DaemonSet
   Alloy->>Kubernetes: discover pods and tail container logs via the API
   Alloy->>Loki: push labeled log streams
-  Learner->>Make: make datasource-up
-  Make->>Kubernetes: apply Grafana Loki data source ConfigMap
   Learner->>Loki: LogQL query via port-forward or Grafana Explore
 ```
+
+The Grafana **Loki** data source used by Explore in the second diagram is not created here; it already exists once `make monitoring-up` has run, as shown in the first diagram.
 
 ## Learning And Documentation Flow
 
@@ -115,7 +115,7 @@ The optional alerting and logging runbooks come after the core metrics path.
 
 - `infrastructure/kubernetes/dashboards/` owns Grafana dashboard provisioning.
 
-- `infrastructure/kubernetes/datasources/` owns Grafana data source provisioning.
+- `infrastructure/kubernetes/helm-values/kube-prometheus-stack-values.yaml` owns Grafana data source provisioning, including the optional Loki data source.
 
 - `infrastructure/kubernetes/alerts/` owns Prometheus alert rules.
 
