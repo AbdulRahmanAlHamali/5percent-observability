@@ -11,7 +11,7 @@ PROMETHEUS_PORT ?= 9090
 ALERTMANAGER_PORT ?= 9093
 KUSTOMIZE_TARGET_PATH := $(word 2,$(MAKECMDGOALS))
 
-.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down app-build app-load app-up app-down dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward status clean kustomize-apply kustomize-delete
+.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down app-build app-load app-up app-down dashboard-up dashboard-down datasource-up datasource-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward status clean kustomize-apply kustomize-delete
 
 ifneq ($(filter kustomize-apply kustomize-delete,$(firstword $(MAKECMDGOALS))),)
   ifneq ($(KUSTOMIZE_TARGET_PATH),)
@@ -89,6 +89,12 @@ dashboard-up: ensure-kind-context ## Load Grafana dashboards through the sidecar
 
 dashboard-down: ensure-kind-context ## Remove Grafana dashboard ConfigMaps.
 	$(MAKE) kustomize-delete infrastructure/kubernetes/dashboards
+
+datasource-up: ensure-kind-context ## Load the Grafana Loki data source through the sidecar.
+	$(MAKE) kustomize-apply infrastructure/kubernetes/datasources
+
+datasource-down: ensure-kind-context ## Remove the Grafana Loki data source ConfigMap.
+	$(MAKE) kustomize-delete infrastructure/kubernetes/datasources
 
 alerts-up: ensure-kind-context ## Apply sample Prometheus alert rules.
 	$(MAKE) kustomize-apply infrastructure/kubernetes/alerts

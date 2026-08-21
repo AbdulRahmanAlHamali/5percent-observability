@@ -37,6 +37,10 @@ flowchart TD
   app --> podlogs["container stdout<br>Kubernetes pod logs"]
   podlogs --> alloy
   alloy --> loki
+
+  kustomize --> lokiDatasource["Grafana data source ConfigMap<br>grafana_datasource=1"]
+  lokiDatasource --> grafana
+  grafana --> loki
 ```
 
 ## Runtime Flow
@@ -79,7 +83,9 @@ sequenceDiagram
   Helmfile->>Kubernetes: install Loki StatefulSet and Alloy DaemonSet
   Alloy->>Kubernetes: discover pods and tail container logs via the API
   Alloy->>Loki: push labeled log streams
-  Learner->>Loki: LogQL query via port-forward
+  Learner->>Make: make datasource-up
+  Make->>Kubernetes: apply Grafana Loki data source ConfigMap
+  Learner->>Loki: LogQL query via port-forward or Grafana Explore
 ```
 
 ## Learning And Documentation Flow
@@ -108,6 +114,8 @@ The optional alerting and logging runbooks come after the core metrics path.
 - `infrastructure/kubernetes/apps/` owns workload manifests.
 
 - `infrastructure/kubernetes/dashboards/` owns Grafana dashboard provisioning.
+
+- `infrastructure/kubernetes/datasources/` owns Grafana data source provisioning.
 
 - `infrastructure/kubernetes/alerts/` owns Prometheus alert rules.
 

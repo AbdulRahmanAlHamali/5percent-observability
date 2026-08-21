@@ -26,6 +26,8 @@ Loki stores labeled log streams and serves LogQL queries once a collector sends 
 
 The optional Helmfile installs the pinned Loki chart and the pinned Grafana Alloy chart in the `logging` namespace.
 
+`make datasource-up` applies `infrastructure/kubernetes/datasources/loki-datasource.yaml`, a `ConfigMap` labeled `grafana_datasource=1` that the Grafana sidecar (already enabled in `kube-prometheus-stack-values.yaml`) provisions as a **Loki** data source, so logs can be explored in Grafana's Explore view instead of only through Loki's HTTP API directly.
+
 Loki runs in single-binary mode with one replica, filesystem storage, and an ephemeral `emptyDir` for its working data. No persistent volume is used.
 
 Alloy runs as a `DaemonSet` and uses the Kubernetes API to discover every pod on the cluster and tail its container logs, so it needs no privileged host-path mounts.
@@ -60,7 +62,7 @@ The implemented path is:
 
 ```text
 sample app -> container stdout and stderr -> Kubernetes API (pod logs)
-  -> Alloy (discovery.kubernetes, loki.source.kubernetes) -> Loki -> Grafana / LogQL
+  -> Alloy (discovery.kubernetes, loki.source.kubernetes) -> Loki -> Grafana Explore (LogQL)
 ```
 
 `kubectl logs` reads the same underlying container log data directly and remains useful for a quick, ad hoc check without querying Loki.

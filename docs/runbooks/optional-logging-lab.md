@@ -53,10 +53,11 @@ curl http://localhost:8080/work
 
 Leave the app port-forward running; the next checkpoint reuses it to generate more traffic.
 
-Install Loki and the Alloy log collector through the local Helmfile target.
+Install Loki and the Alloy log collector through the local Helmfile target, then load the Grafana Loki data source through the sidecar.
 
 ```bash
 make logging-up
+make datasource-up
 ```
 
 Inspect the installed resources and wait for the Loki StatefulSet and the Alloy DaemonSet.
@@ -120,6 +121,28 @@ Validation: identify which fields are Loki labels (`namespace`, `pod`, `containe
 
 Stop the app and Loki port-forwards with `Ctrl-C` when this checkpoint is complete.
 
+## Checkpoint: Explore Logs In Grafana
+
+In terminal 3, expose Grafana on local port `3000`.
+
+```bash
+make grafana-port-forward
+```
+
+Open `http://localhost:3000`, sign in, and open **Explore**.
+
+Select the **Loki** data source and run the same query used above.
+
+```logql
+{namespace="fivepercent-observability", app="sample-metrics-app"}
+```
+
+Expected outcome: Explore renders matching log lines and a log-volume histogram over the selected time range.
+
+Explanation: `make datasource-up` applies `infrastructure/kubernetes/datasources/loki-datasource.yaml`, a `ConfigMap` labeled `grafana_datasource=1` that the Grafana sidecar picks up and provisions as a data source pointed at `http://loki.logging.svc.cluster.local:3100`. Grafana's Explore view sends the same LogQL query through this data source rather than through a direct `curl` to Loki's API.
+
+Validation: confirm the **Loki** data source appears under Grafana's data source list and that its connection test succeeds.
+
 ## Validation
 
 Confirm the direct log path still works.
@@ -128,15 +151,16 @@ Confirm the direct log path still works.
 kubectl --context kind-fivepercent-observability -n fivepercent-observability logs -l app.kubernetes.io/name=sample-metrics-app --all-containers=true --tail=10 --prefix=true
 ```
 
-Confirm the Loki and Alloy workload status.
+Confirm the Loki and Alloy workload status, and that the Grafana data source ConfigMap is present.
 
 ```bash
 kubectl --context kind-fivepercent-observability -n logging get statefulset loki
 kubectl --context kind-fivepercent-observability -n logging get daemonset alloy
 kubectl --context kind-fivepercent-observability -n logging get pods
+kubectl --context kind-fivepercent-observability -n monitoring get configmap loki-datasource --show-labels
 ```
 
-Expected outcome: direct app logs are readable, Loki is ready, Alloy is ready on every node, and a LogQL query against `{namespace="fivepercent-observability", app="sample-metrics-app"}` returns recent entries.
+Expected outcome: direct app logs are readable, Loki is ready, Alloy is ready on every node, a LogQL query against `{namespace="fivepercent-observability", app="sample-metrics-app"}` returns recent entries, and the `loki-datasource` ConfigMap has `grafana_datasource=1`.
 
 ## Troubleshooting
 
@@ -175,27 +199,36 @@ curl -s "http://localhost:3100/loki/api/v1/label/app/values"
 curl -s "http://localhost:3100/loki/api/v1/label/namespace/values"
 ```
 
-If a Grafana log view has no sample app streams, add Loki as a Grafana data source (`http://loki.logging.svc.cluster.local:3100`) first; this lab validates ingestion directly against Loki's API and does not provision a Grafana data source by default.
+If Grafana's Explore view has no **Loki** data source in the dropdown, confirm `make datasource-up` ran and check the ConfigMap and sidecar.
+
+```bash
+kubectl --context kind-fivepercent-observability -n monitoring get configmap loki-datasource --show-labels
+kubectl --context kind-fivepercent-observability -n monitoring logs -l app.kubernetes.io/name=grafana -c grafana-sc-datasources --tail=20
+```
+
+If the **Loki** data source appears but its connection test fails, confirm Loki itself is ready; the data source's URL depends on the `loki` Service existing in the `logging` namespace.
 
 ## Cleanup
 
-Remove Loki and Alloy.
+Remove the Grafana data source, then Loki and Alloy.
 
 ```bash
+make datasource-down
 make logging-down
 ```
 
-Expected outcome: the Loki and Alloy Helm releases and workloads are removed from the local cluster.
+Expected outcome: the `loki-datasource` ConfigMap and the Loki and Alloy Helm releases and workloads are removed from the local cluster.
 
 The `logging` namespace may remain empty after the Helm releases are removed.
 
-Verify that the Loki StatefulSet and the Alloy DaemonSet are absent.
+Verify that the Loki StatefulSet, the Alloy DaemonSet, and the data source ConfigMap are absent.
 
 ```bash
 kubectl --context kind-fivepercent-observability -n logging get statefulset loki
 kubectl --context kind-fivepercent-observability -n logging get daemonset alloy
+kubectl --context kind-fivepercent-observability -n monitoring get configmap loki-datasource
 ```
 
-Expected outcome: Kubernetes reports that both resources are not found.
+Expected outcome: Kubernetes reports that all three resources are not found.
 
 This cleanup does not remove the core metrics lab.
