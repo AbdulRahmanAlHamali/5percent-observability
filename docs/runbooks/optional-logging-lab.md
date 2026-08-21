@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This optional runbook compares direct Kubernetes log inspection with the boundary of the local Loki installation.
+This optional runbook compares direct Kubernetes log inspection with the installed Loki logging pipeline.
 
 Read [Fundamentals 10: Logging](../fundamentals/10-logging-fundamentals.md) for the theory and [Logging With Loki](../appendices/logging-with-loki.md) for the deeper component explanation.
 
@@ -14,7 +14,7 @@ Read [Fundamentals 10: Logging](../fundamentals/10-logging-fundamentals.md) for 
 
 - Keep the local `kind-fivepercent-observability` cluster and sample app running.
 
-- Keep at least 512 MiB of local cluster memory available for the optional Loki container limit.
+- Keep at least 512 MiB of local cluster memory available for the Loki and Alloy container limits.
 
 Verify that the app pods are ready.
 
@@ -51,47 +51,74 @@ curl http://localhost:8080/
 curl http://localhost:8080/work
 ```
 
-Stop the app port-forward with `Ctrl-C` when the direct log check is complete.
+Leave the app port-forward running; the next checkpoint reuses it to generate more traffic.
 
-The Loki installation is optional.
-
-Skip the remaining installation steps if you only need the direct Kubernetes log exercise.
-
-Install Loki through the local Helmfile target.
+Install Loki and the Alloy log collector through the local Helmfile target.
 
 ```bash
 make logging-up
 ```
 
-Inspect the installed resources and wait for the single-binary Loki StatefulSet.
+Inspect the installed resources and wait for the Loki StatefulSet and the Alloy DaemonSet.
 
 ```bash
-kubectl --context kind-fivepercent-observability -n logging get statefulsets,pods,services
+kubectl --context kind-fivepercent-observability -n logging get statefulsets,daemonsets,pods,services
 kubectl --context kind-fivepercent-observability -n logging rollout status statefulset/loki --timeout=5m
+kubectl --context kind-fivepercent-observability -n logging rollout status daemonset/alloy --timeout=5m
 ```
 
-Expected outcome: the `loki` StatefulSet reaches its ready state and the Loki resources run in the `logging` namespace.
+Expected outcome: the `loki` StatefulSet and the `alloy` DaemonSet both reach their ready state in the `logging` namespace.
 
-Explanation: this lab installs Loki in single-binary mode with local filesystem storage and no persistent volume.
+Explanation: this lab installs Loki in single-binary mode with local filesystem storage and no persistent volume, and Alloy as a `DaemonSet` that discovers pods through the Kubernetes API and tails their container logs.
 
-The lab does not deploy a log collector.
-
-Without a collector, the sample application's container logs are not ingested into Loki.
-
-Do not run or present LogQL queries for the sample app because no sample app log stream exists in Loki.
-
-Installing the storage component alone does not create a complete logging pipeline.
-
-The boundary is:
+The pipeline is:
 
 ```text
 sample app stdout -> kubectl logs
-sample app stdout -X-> Loki because no collector is installed
+sample app stdout -> Kubernetes API -> Alloy -> Loki
 ```
 
-Expected outcome: you can explain that direct app logs are available through Kubernetes while Loki has no ingestion path for those app logs.
+## Checkpoint: Query Ingested Logs With LogQL
 
-Validation: identify the missing collector role that would read container logs, add labels, and send entries to Loki, without adding that component to this lab.
+Generate fresh traffic so there is something recent to find.
+
+```bash
+curl http://localhost:8080/
+curl http://localhost:8080/work
+curl http://localhost:8080/work
+```
+
+In terminal 3, expose Loki on local port `3100`.
+
+```bash
+kubectl --context kind-fivepercent-observability -n logging port-forward svc/loki 3100:3100
+```
+
+In terminal 4, query Loki directly with LogQL for the sample app's stream.
+
+```bash
+curl -s -G "http://localhost:3100/loki/api/v1/query_range" \
+  --data-urlencode 'query={namespace="fivepercent-observability", app="sample-metrics-app"}' \
+  --data-urlencode 'limit=20'
+```
+
+Expected outcome: the response contains `"status": "success"` and a non-empty `result` array with recent request log lines from both app pods.
+
+Explanation: `discovery.kubernetes` and `loki.source.kubernetes` in Alloy's configuration (`infrastructure/kubernetes/helm-values/alloy-values.yaml`) discover every pod on the cluster and tail its container logs through the Kubernetes API. `discovery.relabel` attaches the `namespace`, `pod`, `container`, and `app` labels used above. `loki.write` pushes the resulting streams to Loki.
+
+Filter to one pod's stream, or filter the log body with a LogQL line filter.
+
+```bash
+curl -s -G "http://localhost:3100/loki/api/v1/query_range" \
+  --data-urlencode 'query={namespace="fivepercent-observability", app="sample-metrics-app"} |= "/work"' \
+  --data-urlencode 'limit=20'
+```
+
+Expected outcome: only log lines mentioning `/work` are returned, demonstrating that unindexed request detail (the route) lives in the log body rather than as a Loki label.
+
+Validation: identify which fields are Loki labels (`namespace`, `pod`, `container`, `app`) versus which fields only exist inside the log line and require a LogQL filter to find.
+
+Stop the app and Loki port-forwards with `Ctrl-C` when this checkpoint is complete.
 
 ## Validation
 
@@ -101,16 +128,15 @@ Confirm the direct log path still works.
 kubectl --context kind-fivepercent-observability -n fivepercent-observability logs -l app.kubernetes.io/name=sample-metrics-app --all-containers=true --tail=10 --prefix=true
 ```
 
-If Loki was installed, confirm its workload status.
+Confirm the Loki and Alloy workload status.
 
 ```bash
 kubectl --context kind-fivepercent-observability -n logging get statefulset loki
+kubectl --context kind-fivepercent-observability -n logging get daemonset alloy
 kubectl --context kind-fivepercent-observability -n logging get pods
 ```
 
-Expected outcome: direct app logs are readable and, when installed, Loki is ready as a storage component.
-
-This validation does not claim that application logs are stored in Loki.
+Expected outcome: direct app logs are readable, Loki is ready, Alloy is ready on every node, and a LogQL query against `{namespace="fivepercent-observability", app="sample-metrics-app"}` returns recent entries.
 
 ## Troubleshooting
 
@@ -129,26 +155,47 @@ kubectl --context kind-fivepercent-observability -n logging get pods
 kubectl --context kind-fivepercent-observability -n logging get events --sort-by=.lastTimestamp
 ```
 
-If a Grafana log view has no sample app streams, treat that as expected because the lab has no collector.
+If a `loki-0` pod is stuck in `CrashLoopBackOff` reporting a read-only filesystem error, delete the pod so the `StatefulSet` recreates it on the current pod template; a change to `loki-values.yaml` does not always trigger an automatic rolling replacement of an already-crashing pod.
+
+```bash
+kubectl --context kind-fivepercent-observability -n logging delete pod loki-0
+```
+
+If the Alloy `DaemonSet` is not ready, inspect its pods and logs for configuration errors.
+
+```bash
+kubectl --context kind-fivepercent-observability -n logging get pods -l app.kubernetes.io/name=alloy
+kubectl --context kind-fivepercent-observability -n logging logs -l app.kubernetes.io/name=alloy -c alloy --tail=50
+```
+
+If a LogQL query returns an empty `result` array, confirm traffic was generated after Alloy became ready, and confirm the label values match the running app's namespace and `app.kubernetes.io/name` label exactly.
+
+```bash
+curl -s "http://localhost:3100/loki/api/v1/label/app/values"
+curl -s "http://localhost:3100/loki/api/v1/label/namespace/values"
+```
+
+If a Grafana log view has no sample app streams, add Loki as a Grafana data source (`http://loki.logging.svc.cluster.local:3100`) first; this lab validates ingestion directly against Loki's API and does not provision a Grafana data source by default.
 
 ## Cleanup
 
-Remove Loki if it was installed.
+Remove Loki and Alloy.
 
 ```bash
 make logging-down
 ```
 
-Expected outcome: the optional Loki Helm release and workloads are removed from the local cluster.
+Expected outcome: the Loki and Alloy Helm releases and workloads are removed from the local cluster.
 
-The `logging` namespace may remain empty after the Helm release is removed.
+The `logging` namespace may remain empty after the Helm releases are removed.
 
-Verify that the Loki StatefulSet is absent.
+Verify that the Loki StatefulSet and the Alloy DaemonSet are absent.
 
 ```bash
 kubectl --context kind-fivepercent-observability -n logging get statefulset loki
+kubectl --context kind-fivepercent-observability -n logging get daemonset alloy
 ```
 
-Expected outcome: Kubernetes reports that the StatefulSet is not found.
+Expected outcome: Kubernetes reports that both resources are not found.
 
 This cleanup does not remove the core metrics lab.

@@ -33,6 +33,10 @@ flowchart TD
   prometheus --> alertmanager
 
   helmfile --> loki["optional Loki<br>logging namespace"]
+  helmfile --> alloy["optional Alloy<br>logging namespace"]
+  app --> podlogs["container stdout<br>Kubernetes pod logs"]
+  podlogs --> alloy
+  alloy --> loki
 ```
 
 ## Runtime Flow
@@ -59,6 +63,23 @@ sequenceDiagram
   Learner->>Make: make dashboard-up
   Make->>Kubernetes: apply Grafana dashboard ConfigMap
   Grafana->>Prometheus: query fivepercent_* metrics
+```
+
+```mermaid
+sequenceDiagram
+  participant Learner
+  participant Make as Makefile
+  participant Helmfile
+  participant Kubernetes
+  participant Alloy
+  participant Loki
+
+  Learner->>Make: make logging-up
+  Make->>Helmfile: sync loki, then alloy
+  Helmfile->>Kubernetes: install Loki StatefulSet and Alloy DaemonSet
+  Alloy->>Kubernetes: discover pods and tail container logs via the API
+  Alloy->>Loki: push labeled log streams
+  Learner->>Loki: LogQL query via port-forward
 ```
 
 ## Learning And Documentation Flow
@@ -102,9 +123,9 @@ The optional alerting and logging runbooks come after the core metrics path.
 
 The monitoring stack pins `kube-prometheus-stack` chart `87.10.1`, which was the latest public chart release found in the Prometheus Community chart metadata on 2026-07-08.
 
-The optional logging appendix pins Grafana Loki chart `6.55.0` from `https://grafana.github.io/helm-charts`.
+The optional logging appendix pins Grafana Loki chart `6.55.0` and Grafana Alloy chart `1.11.1`, both from `https://grafana.github.io/helm-charts`.
 
-The public Loki migration documentation identifies this as the final Grafana-repo Loki chart family before the community-chart migration path.
+The public Loki migration documentation identifies the `6.55.0` Loki chart as the final Grafana-repo Loki chart family before the community-chart migration path.
 
 ## Resource Model
 

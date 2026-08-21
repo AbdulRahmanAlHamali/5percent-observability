@@ -40,11 +40,11 @@ The runbooks are the canonical source for commands, expected outcomes, validatio
 
 - [Optional Alerting Lab](runbooks/optional-alerting-lab.md) demonstrates reversible alert lifecycle behavior.
 
-- [Optional Logging Lab](runbooks/optional-logging-lab.md) demonstrates direct logs and the boundary of the collector-free Loki installation.
+- [Optional Logging Lab](runbooks/optional-logging-lab.md) demonstrates direct logs and the Alloy-to-Loki ingestion path, validated with a LogQL query.
 
 ### Deeper Appendices
 
-- [Logging With Loki](appendices/logging-with-loki.md) explains the optional logging architecture and its current limitations.
+- [Logging With Loki](appendices/logging-with-loki.md) explains the optional logging architecture, its collector, and its label design.
 
 - [Alerting With Alertmanager](appendices/alerting-with-alertmanager.md) explains Prometheus rule evaluation and Alertmanager routing.
 
