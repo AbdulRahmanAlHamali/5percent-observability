@@ -53,6 +53,8 @@ sequenceDiagram
   participant Kubernetes
   participant Prometheus
   participant Grafana
+  participant Alloy
+  participant Loki
 
   Learner->>Make: make kind-up
   Make->>Kind: create local cluster
@@ -67,17 +69,6 @@ sequenceDiagram
   Learner->>Make: make dashboard-up
   Make->>Kubernetes: apply Grafana dashboard ConfigMap
   Grafana->>Prometheus: query fivepercent_* metrics
-```
-
-```mermaid
-sequenceDiagram
-  participant Learner
-  participant Make as Makefile
-  participant Helmfile
-  participant Kubernetes
-  participant Alloy
-  participant Loki
-
   Learner->>Make: make logging-up
   Make->>Helmfile: sync loki, then alloy
   Helmfile->>Kubernetes: install Loki StatefulSet and Alloy DaemonSet
@@ -86,7 +77,7 @@ sequenceDiagram
   Learner->>Loki: LogQL query via port-forward or Grafana Explore
 ```
 
-The Grafana **Loki** data source used by Explore in the second diagram is not created here; it already exists once `make monitoring-up` has run, as shown in the first diagram.
+The Grafana **Loki** data source used by Explore is not created by `make logging-up`; it already exists once `make monitoring-up` has run, earlier in this same sequence.
 
 ## Learning And Documentation Flow
 
