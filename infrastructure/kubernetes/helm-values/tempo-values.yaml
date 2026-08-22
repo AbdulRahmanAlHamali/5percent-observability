@@ -1,0 +1,36 @@
+replicas: 1
+
+tempo:
+  retention: 24h
+  # The chart defaults this to 1024, which cannot fit inside the memory limit
+  # below and OOM-kills the pod on startup. Go 1.19+ uses GOMEMLIMIT instead,
+  # so the ballast is legacy and safe to disable.
+  memBallastSizeMbs: 0
+  # Only OTLP is needed for this lab; the chart also defaults to Jaeger and
+  # OpenCensus receivers, which would open ports nothing sends to.
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+  storage:
+    trace:
+      backend: local
+      local:
+        path: /var/tempo/traces
+      wal:
+        path: /var/tempo/wal
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+persistence:
+  enabled: false
+
+serviceMonitor:
+  enabled: false

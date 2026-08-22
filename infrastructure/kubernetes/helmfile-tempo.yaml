@@ -1,0 +1,17 @@
+---
+helmDefaults:
+  createNamespace: true
+
+repositories:
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+
+releases:
+  - name: tempo
+    namespace: tracing
+    chart: grafana/tempo
+    version: 1.24.4
+    labels:
+      stack: tracing
+    values:
+      - ./helm-values/tempo-values.yaml

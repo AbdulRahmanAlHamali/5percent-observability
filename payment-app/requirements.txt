@@ -1,3 +1,6 @@
 flask
 prometheus-client
 UnleashClient
+opentelemetry-distro
+opentelemetry-exporter-otlp
+opentelemetry-instrumentation-flask
