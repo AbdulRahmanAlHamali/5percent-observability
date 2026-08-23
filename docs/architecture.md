@@ -40,6 +40,12 @@ flowchart TD
   podlogs --> alloy
   alloy --> loki
   grafanaDatasources -.-> loki
+
+  helmfile --> tempo["optional Tempo<br>tracing namespace"]
+  kustomize --> paymentApp["payment checkout app<br>payment-checkout namespace"]
+  paymentApp --> spans["OTLP spans<br>OpenTelemetry auto-instrumentation"]
+  spans --> tempo
+  grafanaDatasources -.-> tempo
 ```
 
 ## Runtime Flow
@@ -55,13 +61,14 @@ sequenceDiagram
   participant Grafana
   participant Alloy
   participant Loki
+  participant Tempo
 
   Learner->>Make: make kind-up
   Make->>Kind: create local cluster
   Learner->>Make: make monitoring-up
   Make->>Helmfile: sync kube-prometheus-stack
   Helmfile->>Kubernetes: install Prometheus, Grafana, Alertmanager
-  Helmfile->>Grafana: provision Prometheus, Alertmanager, and Loki data sources
+  Helmfile->>Grafana: provision Prometheus, Alertmanager, Loki, and Tempo data sources
   Learner->>Make: make app-up
   Make->>Kubernetes: build, load, and apply sample app manifests
   Kubernetes->>Prometheus: ServiceMonitor exposes scrape configuration
@@ -75,9 +82,14 @@ sequenceDiagram
   Alloy->>Kubernetes: discover pods and tail container logs via the API
   Alloy->>Loki: push labeled log streams
   Learner->>Loki: LogQL query via port-forward or Grafana Explore
+  Learner->>Make: make tracing-up
+  Make->>Helmfile: sync tempo
+  Helmfile->>Kubernetes: install Tempo StatefulSet
+  Kubernetes->>Tempo: payment checkout app exports OTLP spans directly
+  Learner->>Tempo: TraceQL query via port-forward or Grafana Explore
 ```
 
-The Grafana **Loki** data source used by Explore is not created by `make logging-up`; it already exists once `make monitoring-up` has run, earlier in this same sequence.
+The Grafana **Loki** and **Tempo** data sources used by Explore are not created by `make logging-up` or `make tracing-up`; they already exist once `make monitoring-up` has run, earlier in this same sequence.
 
 ## Learning And Documentation Flow
 
@@ -106,7 +118,7 @@ The optional alerting and logging runbooks come after the core metrics path.
 
 - `infrastructure/kubernetes/dashboards/` owns Grafana dashboard provisioning.
 
-- `infrastructure/kubernetes/helm-values/kube-prometheus-stack-values.yaml` owns Grafana data source provisioning, including the optional Loki data source.
+- `infrastructure/kubernetes/helm-values/kube-prometheus-stack-values.yaml` owns Grafana data source provisioning, including the optional Loki and Tempo data sources.
 
 - `infrastructure/kubernetes/alerts/` owns Prometheus alert rules.
 
@@ -125,6 +137,8 @@ The monitoring stack pins `kube-prometheus-stack` chart `87.10.1`, which was the
 The optional logging appendix pins Grafana Loki chart `6.55.0` and Grafana Alloy chart `1.11.1`, both from `https://grafana.github.io/helm-charts`.
 
 The public Loki migration documentation identifies the `6.55.0` Loki chart as the final Grafana-repo Loki chart family before the community-chart migration path.
+
+The optional tracing stack pins Grafana Tempo chart `2.2.4` from `https://grafana-community.github.io/helm-charts`. The Tempo chart in the Grafana repository is marked deprecated, so the community repository is the maintained source.
 
 ## Resource Model
 
