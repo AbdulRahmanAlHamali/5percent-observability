@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: payment-app
+  namespace: payment-checkout
+  labels:
+    app.kubernetes.io/name: payment-app
+    app.kubernetes.io/part-of: fivepercent-observability-lab
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment-app
+  namespaceSelector:
+    matchNames:
+      - payment-checkout
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
