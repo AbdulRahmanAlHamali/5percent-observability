@@ -3,6 +3,7 @@ override KIND_CONTEXT := kind-fivepercent-observability
 KIND_CONFIG_PATH ?= infrastructure/kubernetes/kind/cluster-config.yaml
 HELMFILE_PATH ?= infrastructure/kubernetes/helmfile.yaml
 LOGGING_HELMFILE_PATH ?= infrastructure/kubernetes/helmfile-loki.yaml
+FEATURE_FLAGS_HELMFILE_PATH ?= infrastructure/kubernetes/helmfile-feature-flags.yaml
 override KUBECTL := kubectl --context "$(KIND_CONTEXT)"
 APP_IMAGE ?= fivepercent-observability-sample-app:local
 APP_NAMESPACE ?= fivepercent-observability
@@ -11,9 +12,10 @@ PAYMENT_APP_NAMESPACE ?= payment-checkout
 GRAFANA_PORT ?= 3000
 PROMETHEUS_PORT ?= 9090
 ALERTMANAGER_PORT ?= 9093
+UNLEASH_PORT ?= 4242
 KUSTOMIZE_TARGET_PATH := $(word 2,$(MAKECMDGOALS))
 
-.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down app-build app-load app-up app-down payment-app-build payment-app-load payment-app-up payment-app-down dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward status clean kustomize-apply kustomize-delete
+.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down feature-flags-up feature-flags-down app-build app-load app-up app-down payment-app-build payment-app-load payment-app-up payment-app-down dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward unleash-port-forward status clean kustomize-apply kustomize-delete
 
 ifneq ($(filter kustomize-apply kustomize-delete,$(firstword $(MAKECMDGOALS))),)
   ifneq ($(KUSTOMIZE_TARGET_PATH),)
@@ -74,6 +76,16 @@ logging-down: ensure-kind-context ## Remove optional Loki logging stack.
 		echo "loki release is already absent"; \
 	fi
 
+feature-flags-up: ensure-kind-context ## Install optional Unleash feature flag stack.
+	helmfile --kube-context "$(KIND_CONTEXT)" -f "$(FEATURE_FLAGS_HELMFILE_PATH)" sync
+
+feature-flags-down: ensure-kind-context ## Remove optional Unleash feature flag stack.
+	@if helm --kube-context "$(KIND_CONTEXT)" -n feature-flags status unleash >/dev/null 2>&1; then \
+		helmfile --kube-context "$(KIND_CONTEXT)" -f "$(FEATURE_FLAGS_HELMFILE_PATH)" destroy; \
+	else \
+		echo "unleash release is already absent"; \
+	fi
+
 app-build: ## Build the local sample app image.
 	docker build -t "$(APP_IMAGE)" ./app
 
@@ -118,6 +130,9 @@ prometheus-port-forward: ensure-kind-context ## Port-forward Prometheus to local
 
 alertmanager-port-forward: ensure-kind-context ## Port-forward Alertmanager to localhost:$(ALERTMANAGER_PORT).
 	$(KUBECTL) -n monitoring port-forward svc/kube-prometheus-stack-alertmanager "$(ALERTMANAGER_PORT):9093"
+
+unleash-port-forward: ensure-kind-context ## Port-forward Unleash to localhost:$(UNLEASH_PORT).
+	$(KUBECTL) -n feature-flags port-forward svc/unleash "$(UNLEASH_PORT):4242"
 
 status: ensure-kind-context ## Show core lab resources.
 	$(KUBECTL) get nodes

@@ -1,0 +1,17 @@
+---
+helmDefaults:
+  createNamespace: true
+
+repositories:
+  - name: unleash
+    url: https://docs.getunleash.io/helm-charts
+
+releases:
+  - name: unleash
+    namespace: feature-flags
+    chart: unleash/unleash
+    version: 5.6.8
+    labels:
+      stack: feature-flags
+    values:
+      - ./helm-values/unleash-values.yaml

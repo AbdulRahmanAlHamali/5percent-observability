@@ -29,6 +29,12 @@ spec:
               value: "8080"
             - name: LOG_LEVEL
               value: INFO
+            - name: UNLEASH_URL
+              value: "http://unleash.feature-flags.svc.cluster.local:4242/api"
+            - name: UNLEASH_APP_NAME
+              value: payment-app
+            - name: UNLEASH_API_TOKEN
+              value: "default:development.unleash-insecure-payment-app-token"
           readinessProbe:
             httpGet:
               path: /healthz

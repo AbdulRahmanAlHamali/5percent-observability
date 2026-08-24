@@ -1,0 +1,32 @@
+replicaCount: 1
+
+# Pre-creates a fixed client (backend) API token at server startup so the
+# payment app can authenticate immediately without a manual token-creation
+# step in the UI. Value must match UNLEASH_API_TOKEN in the payment app's
+# Deployment. This is a throwaway local-lab token, not a production secret.
+env:
+  - name: INIT_BACKEND_API_TOKENS
+    value: "default:development.unleash-insecure-payment-app-token"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+# The bundled bitnami/postgresql dependency chart backs Unleash's flag
+# state. Trimmed down from its multi-gigabyte defaults for a local,
+# single-instructor lab: one primary, no read replicas, a small PVC via
+# the kind cluster's default local-path StorageClass.
+postgresql:
+  enabled: true
+  primary:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+    persistence:
+      size: 256Mi

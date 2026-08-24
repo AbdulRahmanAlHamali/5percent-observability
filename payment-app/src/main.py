@@ -10,6 +10,7 @@ from typing import Any
 
 from flask import Flask, Response, render_template, request
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
+from UnleashClient import UnleashClient
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("fivepercent.payment_app")
@@ -42,6 +43,35 @@ DECLINE_REASONS = ["insufficient_funds", "card_declined", "invalid_cvv", "suspec
 DECLINE_WEIGHTS = [0.35, 0.30, 0.15, 0.10, 0.10]
 BASELINE_DECLINE_RATE = 0.08
 
+FRAUD_CHECK_FLAG = "payment-fraud-check-misconfigured"
+FRAUD_CHECK_COUNTRY = "SY"
+FRAUD_CHECK_AMOUNT_THRESHOLD = 500.0
+
+UNLEASH_URL = os.getenv("UNLEASH_URL")
+UNLEASH_API_TOKEN = os.getenv("UNLEASH_API_TOKEN")
+UNLEASH_APP_NAME = os.getenv("UNLEASH_APP_NAME", "payment-app")
+
+unleash_client: UnleashClient | None = None
+if UNLEASH_URL and UNLEASH_API_TOKEN:
+    unleash_client = UnleashClient(
+        url=UNLEASH_URL,
+        app_name=UNLEASH_APP_NAME,
+        custom_headers={"Authorization": UNLEASH_API_TOKEN},
+    )
+    try:
+        unleash_client.initialize_client()
+    except Exception:
+        logger.exception("Failed to connect to Unleash; feature flags will default to disabled")
+        unleash_client = None
+else:
+    logger.info("UNLEASH_URL/UNLEASH_API_TOKEN not set; feature flags will default to disabled")
+
+
+def fraud_check_misconfigured() -> bool:
+    if unleash_client is None:
+        return False
+    return unleash_client.is_enabled(FRAUD_CHECK_FLAG)
+
 CHECKOUT_VIEWS = Counter(
     "fivepercent_payment_checkout_views_total",
     "Total checkout page views.",
@@ -73,7 +103,10 @@ def client_ip() -> str:
     return request.headers.get("X-Forwarded-For", request.remote_addr or "unknown")
 
 
-def evaluate_payment(amount: float, country: str, card_number: str) -> tuple[bool, str | None]:
+def evaluate_payment(amount: float, country: str, card_number: str, fraud_check_bug_enabled: bool) -> tuple[bool, str | None]:
+    if fraud_check_bug_enabled and country == FRAUD_CHECK_COUNTRY and amount > FRAUD_CHECK_AMOUNT_THRESHOLD:
+        return False, "suspected_fraud"
+
     if random.random() < BASELINE_DECLINE_RATE:
         reason = random.choices(DECLINE_REASONS, weights=DECLINE_WEIGHTS)[0]
         return False, reason
@@ -136,7 +169,8 @@ def submit_checkout() -> str:
     except ValueError:
         amount = 0.0
 
-    accepted, reason = evaluate_payment(amount, country, card_number)
+    fraud_check_bug_enabled = fraud_check_misconfigured()
+    accepted, reason = evaluate_payment(amount, country, card_number, fraud_check_bug_enabled)
     CHECKOUT_SUBMISSIONS.labels("succeeded" if accepted else "failed").inc()
 
     log_event(
@@ -151,6 +185,7 @@ def submit_checkout() -> str:
         card_last4=card_last4,
         status="accepted" if accepted else "rejected",
         rejection_reason=reason,
+        fraud_check_flag_enabled=fraud_check_bug_enabled,
     )
 
     return render_template(
