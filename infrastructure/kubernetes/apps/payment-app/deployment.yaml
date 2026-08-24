@@ -29,6 +29,20 @@ spec:
               value: "8080"
             - name: LOG_LEVEL
               value: INFO
+            - name: OTEL_SERVICE_NAME
+              value: payment-app
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://tempo.tracing.svc.cluster.local:4317
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: grpc
+            - name: OTEL_TRACES_EXPORTER
+              value: otlp
+            - name: OTEL_METRICS_EXPORTER
+              value: none
+            - name: OTEL_LOGS_EXPORTER
+              value: none
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.namespace=fivepercent-observability-lab,deployment.environment=lab
           readinessProbe:
             httpGet:
               path: /healthz

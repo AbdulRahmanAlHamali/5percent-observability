@@ -3,6 +3,7 @@ override KIND_CONTEXT := kind-fivepercent-observability
 KIND_CONFIG_PATH ?= infrastructure/kubernetes/kind/cluster-config.yaml
 HELMFILE_PATH ?= infrastructure/kubernetes/helmfile.yaml
 LOGGING_HELMFILE_PATH ?= infrastructure/kubernetes/helmfile-loki.yaml
+TRACING_HELMFILE_PATH ?= infrastructure/kubernetes/helmfile-tempo.yaml
 override KUBECTL := kubectl --context "$(KIND_CONTEXT)"
 APP_IMAGE ?= fivepercent-observability-sample-app:local
 APP_NAMESPACE ?= fivepercent-observability
@@ -13,7 +14,7 @@ PROMETHEUS_PORT ?= 9090
 ALERTMANAGER_PORT ?= 9093
 KUSTOMIZE_TARGET_PATH := $(word 2,$(MAKECMDGOALS))
 
-.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down app-build app-load app-up app-down payment-app-build payment-app-load payment-app-up payment-app-down dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward status clean kustomize-apply kustomize-delete
+.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down tracing-up tracing-down app-build app-load app-up app-down payment-app-build payment-app-load payment-app-up payment-app-down dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward status clean kustomize-apply kustomize-delete
 
 ifneq ($(filter kustomize-apply kustomize-delete,$(firstword $(MAKECMDGOALS))),)
   ifneq ($(KUSTOMIZE_TARGET_PATH),)
@@ -72,6 +73,16 @@ logging-down: ensure-kind-context ## Remove optional Loki logging stack.
 		helmfile --kube-context "$(KIND_CONTEXT)" -f "$(LOGGING_HELMFILE_PATH)" destroy; \
 	else \
 		echo "loki release is already absent"; \
+	fi
+
+tracing-up: ensure-kind-context ## Install optional Tempo tracing stack.
+	helmfile --kube-context "$(KIND_CONTEXT)" -f "$(TRACING_HELMFILE_PATH)" sync
+
+tracing-down: ensure-kind-context ## Remove optional Tempo tracing stack.
+	@if helm --kube-context "$(KIND_CONTEXT)" -n tracing status tempo >/dev/null 2>&1; then \
+		helmfile --kube-context "$(KIND_CONTEXT)" -f "$(TRACING_HELMFILE_PATH)" destroy; \
+	else \
+		echo "tempo release is already absent"; \
 	fi
 
 app-build: ## Build the local sample app image.

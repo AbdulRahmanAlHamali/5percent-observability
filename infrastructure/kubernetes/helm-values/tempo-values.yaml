@@ -1,0 +1,39 @@
+replicas: 1
+
+tempo:
+  retention: 24h
+  # The chart defaults this to 1024, which cannot fit inside the memory limit
+  # below and OOM-kills the pod on startup. Go 1.19+ uses GOMEMLIMIT instead,
+  # so the ballast is legacy and safe to disable.
+  memBallastSizeMbs: 0
+  # Only OTLP is used by this lab. The chart's default jaeger receiver cannot
+  # be removed: templates/_ports.tpl dereferences
+  # receivers.jaeger.protocols.* unconditionally, so nulling it fails to
+  # render, and emptying the protocol map makes Tempo refuse to start. The
+  # jaeger ports therefore stay bound inside the pod and are simply unused.
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+  storage:
+    trace:
+      backend: local
+      local:
+        path: /var/tempo/traces
+      wal:
+        path: /var/tempo/wal
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+persistence:
+  enabled: false
+
+serviceMonitor:
+  enabled: false

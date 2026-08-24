@@ -1,0 +1,19 @@
+---
+helmDefaults:
+  createNamespace: true
+
+repositories:
+  # The tempo chart in grafana/helm-charts is deprecated; it is maintained in
+  # the community repository now.
+  - name: grafana-community
+    url: https://grafana-community.github.io/helm-charts
+
+releases:
+  - name: tempo
+    namespace: tracing
+    chart: grafana-community/tempo
+    version: 2.2.4
+    labels:
+      stack: tracing
+    values:
+      - ./helm-values/tempo-values.yaml
