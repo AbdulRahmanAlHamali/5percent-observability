@@ -1,5 +1,13 @@
 replicaCount: 1
 
+# Pre-creates a fixed client (backend) API token at server startup so the
+# payment app can authenticate immediately without a manual token-creation
+# step in the UI. Value must match UNLEASH_API_TOKEN in the payment app's
+# Deployment. This is a throwaway local-lab token, not a production secret.
+env:
+  - name: INIT_BACKEND_API_TOKENS
+    value: "default:development.unleash-insecure-payment-app-token"
+
 resources:
   requests:
     cpu: 100m
