@@ -6,12 +6,14 @@ LOGGING_HELMFILE_PATH ?= infrastructure/kubernetes/helmfile-loki.yaml
 override KUBECTL := kubectl --context "$(KIND_CONTEXT)"
 APP_IMAGE ?= fivepercent-observability-sample-app:local
 APP_NAMESPACE ?= fivepercent-observability
+PAYMENT_APP_IMAGE ?= fivepercent-observability-payment-app:local
+PAYMENT_APP_NAMESPACE ?= payment-checkout
 GRAFANA_PORT ?= 3000
 PROMETHEUS_PORT ?= 9090
 ALERTMANAGER_PORT ?= 9093
 KUSTOMIZE_TARGET_PATH := $(word 2,$(MAKECMDGOALS))
 
-.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down app-build app-load app-up app-down dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward status clean kustomize-apply kustomize-delete
+.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down app-build app-load app-up app-down payment-app-build payment-app-load payment-app-up payment-app-down dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward status clean kustomize-apply kustomize-delete
 
 ifneq ($(filter kustomize-apply kustomize-delete,$(firstword $(MAKECMDGOALS))),)
   ifneq ($(KUSTOMIZE_TARGET_PATH),)
@@ -83,6 +85,18 @@ app-up: ensure-kind-context app-build app-load ## Deploy the sample metrics app.
 
 app-down: ensure-kind-context ## Delete the sample metrics app.
 	$(MAKE) kustomize-delete infrastructure/kubernetes/apps/sample-metrics-app
+
+payment-app-build: ## Build the local payment checkout app image.
+	docker build -t "$(PAYMENT_APP_IMAGE)" ./payment-app
+
+payment-app-load: ## Load the payment checkout app image into kind.
+	kind load docker-image "$(PAYMENT_APP_IMAGE)" --name "$(KIND_CLUSTER_NAME)"
+
+payment-app-up: ensure-kind-context payment-app-build payment-app-load ## Deploy the payment checkout app.
+	$(MAKE) kustomize-apply infrastructure/kubernetes/apps/payment-app
+
+payment-app-down: ensure-kind-context ## Delete the payment checkout app.
+	$(MAKE) kustomize-delete infrastructure/kubernetes/apps/payment-app
 
 dashboard-up: ensure-kind-context ## Load Grafana dashboards through the sidecar.
 	$(MAKE) kustomize-apply infrastructure/kubernetes/dashboards

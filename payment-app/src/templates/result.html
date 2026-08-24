@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ "Payment successful" if accepted else "Payment declined" }}</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f5f7;
+      --card-bg: #ffffff;
+      --border: #e2e4e9;
+      --text: #1a1d23;
+      --muted: #6b7280;
+      --accent: #2f6feb;
+      --accent-hover: #2557c4;
+      --success: #1a8b4c;
+      --success-bg: #e9f8ef;
+      --error: #c2372a;
+      --error-bg: #fdecea;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      padding: 60px 16px;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      text-align: center;
+    }
+    .icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      font-size: 28px;
+    }
+    .icon.success { background: var(--success-bg); color: var(--success); }
+    .icon.error { background: var(--error-bg); color: var(--error); }
+    h1 { font-size: 19px; margin: 0 0 8px; }
+    p.detail { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+    .summary { border-top: 1px solid var(--border); padding-top: 16px; margin-bottom: 24px; font-size: 14px; }
+    .summary-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    a.button {
+      display: inline-block;
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    a.button:hover { background: var(--accent-hover); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    {% if accepted %}
+    <div class="icon success">&#10003;</div>
+    <h1>Payment successful</h1>
+    <p class="detail">Your order has been confirmed.</p>
+    {% else %}
+    <div class="icon error">&#10005;</div>
+    <h1>Payment declined</h1>
+    <p class="detail">We couldn't process your payment. Please try a different payment method.</p>
+    {% endif %}
+
+    <div class="summary">
+      <div class="summary-row"><span>Product</span><span>{{ product }}</span></div>
+      <div class="summary-row"><span>Amount</span><span>{{ currency }} {{ amount }}</span></div>
+    </div>
+
+    <a class="button" href="/checkout">{{ "Buy again" if accepted else "Try again" }}</a>
+  </div>
+</body>
+</html>

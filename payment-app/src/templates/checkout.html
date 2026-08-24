@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Checkout</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f5f7;
+      --card-bg: #ffffff;
+      --border: #e2e4e9;
+      --text: #1a1d23;
+      --muted: #6b7280;
+      --accent: #2f6feb;
+      --accent-hover: #2557c4;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+    .layout {
+      width: 100%;
+      max-width: 880px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+    @media (min-width: 720px) {
+      .layout { grid-template-columns: 320px 1fr; align-items: start; }
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+    .product-name { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
+    .product-sub { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+    .price-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; }
+    .price-row.total { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; font-weight: 600; font-size: 16px; }
+    h1 { font-size: 20px; margin: 0 0 20px; }
+    fieldset { border: none; padding: 0; margin: 0 0 20px; }
+    legend { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 12px; padding: 0; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 13px; margin-bottom: 6px; color: var(--text); }
+    .field input, .field select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      color: var(--text);
+      background: var(--card-bg);
+    }
+    .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .row { display: flex; gap: 12px; }
+    .row .field { flex: 1; }
+    button {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: var(--accent-hover); }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="card">
+      <p class="product-name">{{ product }}</p>
+      <p class="product-sub">1 x {{ currency }} {{ amount }}</p>
+      <div class="price-row"><span>Subtotal</span><span>{{ currency }} {{ amount }}</span></div>
+      <div class="price-row"><span>Shipping</span><span>Free</span></div>
+      <div class="price-row total"><span>Total</span><span>{{ currency }} {{ amount }}</span></div>
+    </div>
+
+    <div class="card">
+      <h1>Checkout</h1>
+      <form method="post" action="/checkout">
+        <input type="hidden" name="checkout_id" value="{{ checkout_id }}">
+        <input type="hidden" name="product" value="{{ product }}">
+        <input type="hidden" name="amount" value="{{ amount }}">
+        <input type="hidden" name="currency" value="{{ currency }}">
+
+        <fieldset>
+          <legend>Contact</legend>
+          <div class="field">
+            <label for="full_name">Full name</label>
+            <input id="full_name" name="full_name" type="text" required>
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" required>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Shipping address</legend>
+          <div class="field">
+            <label for="address_line1">Address</label>
+            <input id="address_line1" name="address_line1" type="text" required>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="city">City</label>
+              <input id="city" name="city" type="text" required>
+            </div>
+            <div class="field">
+              <label for="postal_code">Postal code</label>
+              <input id="postal_code" name="postal_code" type="text" required>
+            </div>
+          </div>
+          <div class="field">
+            <label for="country">Country</label>
+            <select id="country" name="country" required>
+              {% for code, name in countries %}
+              <option value="{{ code }}">{{ name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Payment</legend>
+          <div class="field">
+            <label for="card_number">Card number</label>
+            <input id="card_number" name="card_number" type="text" inputmode="numeric" pattern="[0-9]{13,19}" maxlength="19" placeholder="4242424242424242" required>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="card_expiry">Expiry (MM/YY)</label>
+              <input id="card_expiry" name="card_expiry" type="text" placeholder="12/29" pattern="[0-9]{2}/[0-9]{2}" maxlength="5" required>
+            </div>
+            <div class="field">
+              <label for="card_cvv">CVV</label>
+              <input id="card_cvv" name="card_cvv" type="text" inputmode="numeric" pattern="[0-9]{3,4}" maxlength="4" required>
+            </div>
+          </div>
+        </fieldset>
+
+        <button type="submit">Pay {{ currency }} {{ amount }}</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
