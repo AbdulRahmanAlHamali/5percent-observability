@@ -1,0 +1,24 @@
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+# The bundled bitnami/postgresql dependency chart backs Unleash's flag
+# state. Trimmed down from its multi-gigabyte defaults for a local,
+# single-instructor lab: one primary, no read replicas, a small PVC via
+# the kind cluster's default local-path StorageClass.
+postgresql:
+  enabled: true
+  primary:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+    persistence:
+      size: 256Mi
