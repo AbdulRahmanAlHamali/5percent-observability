@@ -68,7 +68,7 @@ Docker notes:
 
 - [Optional Alerting Lab](optional-alerting-lab.md) applies the sample alert rules and demonstrates pending, firing, and resolved states.
 
-- [Optional Logging Lab](optional-logging-lab.md) inspects application logs and demonstrates the boundary of the collector-free Loki installation.
+- [Optional Logging Lab](optional-logging-lab.md) inspects application logs directly and through the Alloy-to-Loki ingestion path, validated with a LogQL query.
 
 ## Learning Order
 
@@ -76,7 +76,7 @@ Docker notes:
 
 2. Complete [Optional Alerting Lab](optional-alerting-lab.md) when you want to explore metric-based alerts.
 
-3. Complete [Optional Logging Lab](optional-logging-lab.md) when you want to compare direct logs with a logging storage component.
+3. Complete [Optional Logging Lab](optional-logging-lab.md) when you want to compare direct logs with a collector-backed Loki logging pipeline.
 
 The alerting and logging runbooks are independent optional extensions after the core metrics path.
 

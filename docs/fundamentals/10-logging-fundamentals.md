@@ -4,7 +4,7 @@
 
 This chapter explains how logs complement metrics and states the exact logging boundary of the local lab.
 
-> **Important:** The application writes logs that `kubectl logs` can read, and the optional exercise can install Loki, but the repository has no log collector and no complete Loki ingestion path.
+> **Important:** The application writes logs that `kubectl logs` can read directly, and the optional exercise also installs Grafana Alloy as a log collector so those same logs are ingested into Loki and become queryable with LogQL.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ By the end of this chapter, you should be able to:
 
 - Identify the difference between direct pod-log access and centralized logging.
 
-- Explain why installing Loki alone does not make application logs queryable in Loki.
+- Explain why installing Loki alone does not make application logs queryable in Loki, and what a collector adds.
 
 - Propose safe, structured fields without exposing sensitive data.
 
@@ -47,17 +47,15 @@ Removing any required stage breaks the end-to-end path.
 ```mermaid
 flowchart LR
   app["Sample application<br>Writes stdout logs"] --> runtime["Container runtime<br>Retains pod logs"]
-  runtime --> kubectl["kubectl logs<br>Direct local inspection works"]
-  runtime -.-> collector["Log collector<br>Not installed"]
-  collector -.-> loki["Optional Loki<br>No ingestion path"]
-  loki --> grafana["Grafana<br>Would query stored logs"]
+  runtime --> kubectl["kubectl logs<br>Direct local inspection"]
+  runtime --> collector["Alloy<br>Tails pod logs via the Kubernetes API"]
+  collector --> loki["Loki<br>Stores labeled streams"]
+  loki --> query["LogQL<br>Query stored logs"]
 ```
 
-In this lab, the solid path ends at direct inspection with `kubectl logs`.
+In this lab, both paths work: `kubectl logs` gives fast direct inspection, while Alloy ships the same logs into Loki for centralized LogQL queries.
 
-The dashed path marks missing functionality rather than a working pipeline.
-
-Installing Loki provides a backend, but no collector sends container logs to it.
+Installing Loki alone only provides a backend; Alloy is the collector stage that actually sends container logs to it.
 
 ### Useful Log Content
 
@@ -99,19 +97,17 @@ The Flask application writes request and runtime output to standard output.
 
 Kubernetes makes that output available through `kubectl logs`, so direct local inspection works.
 
-The optional logging lab installs Loki in single-binary mode with local filesystem storage settings.
+The optional logging lab installs Loki in single-binary mode with local filesystem storage settings, and installs Grafana Alloy as a `DaemonSet` that discovers pods through the Kubernetes API and tails their container logs.
 
-It does not install Promtail, Grafana Alloy, or another collector.
+Alloy attaches bounded labels (`namespace`, `pod`, `container`, `app`) and pushes each stream to Loki, so application logs become queryable with LogQL soon after they are written.
 
-It also does not configure a complete Grafana-to-Loki application-log query path.
-
-Learners should treat Loki as an installed backend boundary and a follow-up design topic, not as a completed logging solution.
+This lab validates ingestion by querying Loki's API directly rather than provisioning a Grafana Loki data source, so learners should still treat the Grafana-side query experience as a follow-up design topic.
 
 ## Common Mistakes
 
-- Assuming that installing Loki automatically collects Kubernetes logs.
+- Assuming that installing Loki alone (without Alloy) collects Kubernetes logs.
 
-- Claiming an end-to-end logging pipeline works after validating only the Loki pod.
+- Claiming an end-to-end logging pipeline works after validating only the Loki pod, without a LogQL query that actually returns ingested log lines.
 
 - Logging secrets, tokens, request bodies, or personal data.
 
@@ -125,15 +121,15 @@ Learners should treat Loki as an installed backend boundary and a follow-up desi
 
 ## Demo Checkpoint
 
-Use [Checkpoint: Inspect logs and Loki boundaries](../runbooks/optional-logging-lab.md#checkpoint-inspect-logs-and-loki-boundaries) to verify direct logs and identify the intentionally missing ingestion stages.
+Use [Checkpoint: Inspect logs and Loki boundaries](../runbooks/optional-logging-lab.md#checkpoint-inspect-logs-and-loki-boundaries) and [Checkpoint: Query ingested logs with LogQL](../runbooks/optional-logging-lab.md#checkpoint-query-ingested-logs-with-logql) to verify both the direct log path and the collector-backed Loki path.
 
 ## Knowledge Check
 
-1. Which part of the logging path works end to end in the current lab?
+1. Which parts of the logging path work end to end in the current lab?
 
-2. Why does a running Loki instance not prove that application logs are stored there?
+2. Why does a running Loki instance not prove that application logs are stored there without also checking the collector?
 
-3. Which missing component would read container logs and send them to Loki?
+3. Which component reads container logs and sends them to Loki in this lab?
 
 4. What information should never be placed in logs?
 

@@ -15,3 +15,14 @@ releases:
       stack: logging
     values:
       - ./helm-values/loki-values.yaml
+
+  - name: alloy
+    namespace: logging
+    chart: grafana/alloy
+    version: 1.11.1
+    labels:
+      stack: logging
+    needs:
+      - logging/loki
+    values:
+      - ./helm-values/alloy-values.yaml

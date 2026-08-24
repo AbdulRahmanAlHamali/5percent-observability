@@ -59,7 +59,7 @@ curl http://localhost:8080/metrics
 7. Optionally add alerting rules or inspect the logging extension.
 
 ## Optional Appendices
-- [`docs/appendices/logging-with-loki.md`](docs/appendices/logging-with-loki.md) explains Loki and the lab's intentionally incomplete log-ingestion path.
+- [`docs/appendices/logging-with-loki.md`](docs/appendices/logging-with-loki.md) explains Loki and Grafana Alloy, the collector that ships container logs into it.
 - [`docs/appendices/alerting-with-alertmanager.md`](docs/appendices/alerting-with-alertmanager.md) explains how Prometheus rules reach Alertmanager.
 
 ## Cleanup

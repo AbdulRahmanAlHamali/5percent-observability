@@ -18,6 +18,8 @@ flowchart TD
   kps --> prometheus["Prometheus<br>metrics storage and query"]
   kps --> grafana["Grafana<br>dashboards"]
   kps --> alertmanager["Alertmanager<br>alert routing"]
+  kps --> grafanaDatasources["Grafana data sources<br>grafana.additionalDataSources"]
+  grafanaDatasources --> grafana
 
   kustomize --> app["sample metrics app<br>fivepercent-observability namespace"]
   app --> metrics["/metrics<br>Prometheus format"]
@@ -33,6 +35,11 @@ flowchart TD
   prometheus --> alertmanager
 
   helmfile --> loki["optional Loki<br>logging namespace"]
+  helmfile --> alloy["optional Alloy<br>logging namespace"]
+  app --> podlogs["container stdout<br>Kubernetes pod logs"]
+  podlogs --> alloy
+  alloy --> loki
+  grafanaDatasources -.-> loki
 ```
 
 ## Runtime Flow
@@ -46,12 +53,15 @@ sequenceDiagram
   participant Kubernetes
   participant Prometheus
   participant Grafana
+  participant Alloy
+  participant Loki
 
   Learner->>Make: make kind-up
   Make->>Kind: create local cluster
   Learner->>Make: make monitoring-up
   Make->>Helmfile: sync kube-prometheus-stack
   Helmfile->>Kubernetes: install Prometheus, Grafana, Alertmanager
+  Helmfile->>Grafana: provision Prometheus, Alertmanager, and Loki data sources
   Learner->>Make: make app-up
   Make->>Kubernetes: build, load, and apply sample app manifests
   Kubernetes->>Prometheus: ServiceMonitor exposes scrape configuration
@@ -59,7 +69,15 @@ sequenceDiagram
   Learner->>Make: make dashboard-up
   Make->>Kubernetes: apply Grafana dashboard ConfigMap
   Grafana->>Prometheus: query fivepercent_* metrics
+  Learner->>Make: make logging-up
+  Make->>Helmfile: sync loki, then alloy
+  Helmfile->>Kubernetes: install Loki StatefulSet and Alloy DaemonSet
+  Alloy->>Kubernetes: discover pods and tail container logs via the API
+  Alloy->>Loki: push labeled log streams
+  Learner->>Loki: LogQL query via port-forward or Grafana Explore
 ```
+
+The Grafana **Loki** data source used by Explore is not created by `make logging-up`; it already exists once `make monitoring-up` has run, earlier in this same sequence.
 
 ## Learning And Documentation Flow
 
@@ -88,6 +106,8 @@ The optional alerting and logging runbooks come after the core metrics path.
 
 - `infrastructure/kubernetes/dashboards/` owns Grafana dashboard provisioning.
 
+- `infrastructure/kubernetes/helm-values/kube-prometheus-stack-values.yaml` owns Grafana data source provisioning, including the optional Loki data source.
+
 - `infrastructure/kubernetes/alerts/` owns Prometheus alert rules.
 
 - `app/` owns the sample HTTP service and its metrics.
@@ -102,9 +122,9 @@ The optional alerting and logging runbooks come after the core metrics path.
 
 The monitoring stack pins `kube-prometheus-stack` chart `87.10.1`, which was the latest public chart release found in the Prometheus Community chart metadata on 2026-07-08.
 
-The optional logging appendix pins Grafana Loki chart `6.55.0` from `https://grafana.github.io/helm-charts`.
+The optional logging appendix pins Grafana Loki chart `6.55.0` and Grafana Alloy chart `1.11.1`, both from `https://grafana.github.io/helm-charts`.
 
-The public Loki migration documentation identifies this as the final Grafana-repo Loki chart family before the community-chart migration path.
+The public Loki migration documentation identifies the `6.55.0` Loki chart as the final Grafana-repo Loki chart family before the community-chart migration path.
 
 ## Resource Model
 

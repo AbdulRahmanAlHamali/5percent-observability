@@ -60,7 +60,7 @@ Describe how each signal reaches its backend.
 
 For this lab, Prometheus scrapes application metrics through a `ServiceMonitor`.
 
-Application logs are available directly through Kubernetes, while centralized Loki ingestion remains incomplete because no collector is installed.
+Application logs are available directly through Kubernetes, and the optional Alloy collector ships the same logs into Loki for centralized LogQL queries.
 
 ### Step 5: Design Views And Objectives
 
@@ -88,7 +88,7 @@ Record gaps as future instrumentation work instead of hiding them with broad cla
 flowchart TD
   purpose["Service purpose<br>Users and critical interactions"] --> questions["Operational questions<br>Traffic, errors, latency, and saturation"]
   questions --> instruments["Instrumentation<br>Counters, gauges, histograms, and logs"]
-  instruments --> pipeline["Collection pipeline<br>Prometheus scrape and direct pod logs"]
+  instruments --> pipeline["Collection pipeline<br>Prometheus scrape, direct pod logs, and Alloy-to-Loki ingestion"]
   pipeline --> views["Decision surfaces<br>Dashboards and conceptual SLOs"]
   views --> action["Action path<br>Alerts and investigation"]
   action --> validate["Local validation<br>Known behavior and documented gaps"]
@@ -111,9 +111,7 @@ Grafana displays **Request Rate**, **p95 Latency**, **Synthetic Business Events*
 
 Alertmanager handles alert grouping and routing, but no real notification receiver is configured.
 
-Direct application logs are available with `kubectl logs`.
-
-Optional Loki can be installed, but there is no collector and no complete Loki ingestion path.
+Direct application logs are available with `kubectl logs`, and the optional Alloy collector ingests the same logs into Loki, queryable with LogQL.
 
 SLI and SLO work remains a conceptual design exercise with no configured enforcement.
 
@@ -125,7 +123,8 @@ flowchart LR
   prometheus --> grafana["Grafana<br>Four dashboard panels"]
   prometheus --> alertmanager["Alertmanager<br>Routing only"]
   app --> podlogs["kubectl logs<br>Direct inspection"]
-  podlogs -.-> loki["Optional Loki<br>No collector or complete ingestion"]
+  app --> alloy["Alloy<br>Kubernetes API log tailing"]
+  alloy --> loki["Optional Loki<br>Queryable with LogQL"]
 ```
 
 ### Design Worksheet
@@ -188,7 +187,7 @@ For either option, explain the operational question first and then connect the m
 
 - Claiming a conceptual SLO is enforced.
 
-- Claiming Loki contains logs when no collector sends them.
+- Claiming Loki contains logs without a LogQL query that confirms the collector actually shipped them.
 
 - Requesting internal workplace details when a sanitized example is sufficient.
 
