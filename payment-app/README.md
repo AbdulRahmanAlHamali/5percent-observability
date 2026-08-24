@@ -1,12 +1,17 @@
 # Sample Payment App
 
 ## Purpose
-This app is a separate, small checkout flow used for the log analytics lab. It has no Prometheus metrics of its own; it exists to produce realistic structured payment logs for log-based investigation exercises.
+This app is a separate, small checkout flow used for the log analytics lab. It exists to produce realistic structured payment logs and basic Prometheus metrics for investigation exercises.
 
 ## Endpoints
 - `/checkout` (`GET`) renders a checkout page for a constant product at a freshly randomized price.
 - `/checkout` (`POST`) accepts the submitted payment and address form, runs a fake payment decision, and renders a success or decline page.
 - `/healthz` returns a readiness and liveness response for Kubernetes probes.
+- `/metrics` exposes Prometheus metrics.
+
+## Metrics
+- `fivepercent_payment_checkout_views_total` counts every `GET /checkout` page view.
+- `fivepercent_payment_checkout_submissions_total` counts every `POST /checkout` submission, labeled `status` (`succeeded` or `failed`).
 
 ## Structured Logs
 The app writes one JSON object per line to stdout for each of these events, separate from the default Flask/Werkzeug request log line. Each line is valid JSON on its own (no timestamp/level prefix), so it can be parsed directly with LogQL's `| json`.

@@ -9,6 +9,7 @@ from http import HTTPStatus
 from typing import Any
 
 from flask import Flask, Response, render_template, request
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("fivepercent.payment_app")
@@ -40,6 +41,16 @@ COUNTRIES = [
 DECLINE_REASONS = ["insufficient_funds", "card_declined", "invalid_cvv", "suspected_fraud", "address_mismatch"]
 DECLINE_WEIGHTS = [0.35, 0.30, 0.15, 0.10, 0.10]
 BASELINE_DECLINE_RATE = 0.08
+
+CHECKOUT_VIEWS = Counter(
+    "fivepercent_payment_checkout_views_total",
+    "Total checkout page views.",
+)
+CHECKOUT_SUBMISSIONS = Counter(
+    "fivepercent_payment_checkout_submissions_total",
+    "Total checkout form submissions by status.",
+    ["status"],
+)
 
 app = Flask(__name__)
 
@@ -80,8 +91,15 @@ def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/metrics")
+def metrics() -> Response:
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
+
+
 @app.get("/checkout")
 def checkout() -> str:
+    CHECKOUT_VIEWS.inc()
+
     checkout_id = uuid.uuid4().hex
     amount = generate_price()
 
@@ -119,6 +137,7 @@ def submit_checkout() -> str:
         amount = 0.0
 
     accepted, reason = evaluate_payment(amount, country, card_number)
+    CHECKOUT_SUBMISSIONS.labels("succeeded" if accepted else "failed").inc()
 
     log_event(
         "payment_accepted" if accepted else "payment_rejected",
