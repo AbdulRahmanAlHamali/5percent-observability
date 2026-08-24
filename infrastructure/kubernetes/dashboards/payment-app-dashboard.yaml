@@ -36,6 +36,57 @@ data:
                 "pointSize": 5,
                 "showPoints": "never"
               },
+              "max": 1,
+              "min": 0,
+              "unit": "percentunit"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "id": 5,
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(fivepercent_payment_checkout_submissions_total{status=\"succeeded\"}[5m]))\n/\nclamp_min(sum(rate(fivepercent_payment_checkout_views_total[5m])), 0.001)",
+              "legendFormat": "conversion rate",
+              "refId": "A"
+            }
+          ],
+          "title": "Conversion Rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "showPoints": "never"
+              },
               "unit": "reqps"
             },
             "overrides": []
@@ -44,7 +95,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 0
+            "y": 8
           },
           "id": 1,
           "options": {
@@ -93,7 +144,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 0
+            "y": 8
           },
           "id": 2,
           "options": {
@@ -154,7 +205,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 8
+            "y": 16
           },
           "id": 3,
           "options": {
@@ -213,7 +264,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 8
+            "y": 16
           },
           "id": 4,
           "options": {
