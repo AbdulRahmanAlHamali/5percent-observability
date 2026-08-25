@@ -185,7 +185,6 @@ def submit_checkout() -> str:
         card_last4=card_last4,
         status="accepted" if accepted else "rejected",
         rejection_reason=reason,
-        fraud_check_flag_enabled=fraud_check_bug_enabled,
     )
 
     return render_template(
