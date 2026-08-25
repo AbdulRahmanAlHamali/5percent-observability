@@ -11,13 +11,14 @@ APP_NAMESPACE ?= fivepercent-observability
 PAYMENT_APP_IMAGE ?= fivepercent-observability-payment-app:local
 PAYMENT_APP_NAMESPACE ?= payment-checkout
 TRAFFIC_GENERATOR_IMAGE ?= fivepercent-observability-traffic-generator:local
+PAYMENT_APP_DEBUG_IMAGE ?= fivepercent-observability-payment-app:local-debug
 GRAFANA_PORT ?= 3000
 PROMETHEUS_PORT ?= 9090
 ALERTMANAGER_PORT ?= 9093
 UNLEASH_PORT ?= 4242
 KUSTOMIZE_TARGET_PATH := $(word 2,$(MAKECMDGOALS))
 
-.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down feature-flags-up feature-flags-down tracing-up tracing-down app-build app-load app-up app-down payment-app-build payment-app-load traffic-generator-build traffic-generator-load payment-app-up payment-app-down dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward unleash-port-forward status clean kustomize-apply kustomize-delete
+.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down feature-flags-up feature-flags-down tracing-up tracing-down app-build app-load app-up app-down payment-app-build payment-app-load traffic-generator-build traffic-generator-load payment-app-up payment-app-down payment-app-debug-build payment-app-debug-load dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward unleash-port-forward status clean kustomize-apply kustomize-delete
 
 ifneq ($(filter kustomize-apply kustomize-delete,$(firstword $(MAKECMDGOALS))),)
   ifneq ($(KUSTOMIZE_TARGET_PATH),)
@@ -111,10 +112,16 @@ app-down: ensure-kind-context ## Delete the sample metrics app.
 	$(MAKE) kustomize-delete infrastructure/kubernetes/apps/sample-metrics-app
 
 payment-app-build: ## Build the local payment checkout app image.
-	docker build -t "$(PAYMENT_APP_IMAGE)" ./payment-app
+	docker build --target runtime -t "$(PAYMENT_APP_IMAGE)" ./payment-app
 
 payment-app-load: ## Load the payment checkout app image into kind.
 	kind load docker-image "$(PAYMENT_APP_IMAGE)" --name "$(KIND_CLUSTER_NAME)"
+
+payment-app-debug-build: ## Build the payment checkout app's debug variant (adds gdb, strace, lsof, memray, py-spy).
+	docker build --target debug -t "$(PAYMENT_APP_DEBUG_IMAGE)" ./payment-app
+
+payment-app-debug-load: ## Load the payment checkout app's debug variant into kind.
+	kind load docker-image "$(PAYMENT_APP_DEBUG_IMAGE)" --name "$(KIND_CLUSTER_NAME)"
 
 traffic-generator-build: ## Build the local traffic generator image.
 	docker build -t "$(TRAFFIC_GENERATOR_IMAGE)" ./traffic-generator

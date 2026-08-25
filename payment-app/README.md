@@ -42,6 +42,8 @@ This exists so an instructor can flip the flag live to simulate an in-memory cac
 
 Storing the raw card number and CVV in this buffer is itself a second, independent problem beyond the memory leak — a realistic detail, since forgetting to reuse existing redaction logic (like `card_last4` in the structured logs) when adding a new internal-only data path is a common way this kind of mistake actually happens.
 
+For the actual heap-profiling procedure — building the debug image, safely swapping the running Deployment to it, capturing a memray flamegraph, and resetting everything afterward — see the [Heap Profiling Playbook](heap-profiling-playbook.md).
+
 ## Connecting To Unleash
 
 The app connects to Unleash using these environment variables:
