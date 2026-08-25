@@ -10,13 +10,14 @@ APP_IMAGE ?= fivepercent-observability-sample-app:local
 APP_NAMESPACE ?= fivepercent-observability
 PAYMENT_APP_IMAGE ?= fivepercent-observability-payment-app:local
 PAYMENT_APP_NAMESPACE ?= payment-checkout
+TRAFFIC_GENERATOR_IMAGE ?= fivepercent-observability-traffic-generator:local
 GRAFANA_PORT ?= 3000
 PROMETHEUS_PORT ?= 9090
 ALERTMANAGER_PORT ?= 9093
 UNLEASH_PORT ?= 4242
 KUSTOMIZE_TARGET_PATH := $(word 2,$(MAKECMDGOALS))
 
-.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down feature-flags-up feature-flags-down tracing-up tracing-down app-build app-load app-up app-down payment-app-build payment-app-load payment-app-up payment-app-down dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward unleash-port-forward status clean kustomize-apply kustomize-delete
+.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down feature-flags-up feature-flags-down tracing-up tracing-down app-build app-load app-up app-down payment-app-build payment-app-load traffic-generator-build traffic-generator-load payment-app-up payment-app-down dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward unleash-port-forward status clean kustomize-apply kustomize-delete
 
 ifneq ($(filter kustomize-apply kustomize-delete,$(firstword $(MAKECMDGOALS))),)
   ifneq ($(KUSTOMIZE_TARGET_PATH),)
@@ -115,10 +116,16 @@ payment-app-build: ## Build the local payment checkout app image.
 payment-app-load: ## Load the payment checkout app image into kind.
 	kind load docker-image "$(PAYMENT_APP_IMAGE)" --name "$(KIND_CLUSTER_NAME)"
 
-payment-app-up: ensure-kind-context payment-app-build payment-app-load ## Deploy the payment checkout app.
+traffic-generator-build: ## Build the local traffic generator image.
+	docker build -t "$(TRAFFIC_GENERATOR_IMAGE)" ./traffic-generator
+
+traffic-generator-load: ## Load the traffic generator image into kind.
+	kind load docker-image "$(TRAFFIC_GENERATOR_IMAGE)" --name "$(KIND_CLUSTER_NAME)"
+
+payment-app-up: ensure-kind-context payment-app-build payment-app-load traffic-generator-build traffic-generator-load ## Deploy the payment checkout app and its traffic generator.
 	$(MAKE) kustomize-apply infrastructure/kubernetes/apps/payment-app
 
-payment-app-down: ensure-kind-context ## Delete the payment checkout app.
+payment-app-down: ensure-kind-context ## Delete the payment checkout app and its traffic generator.
 	$(MAKE) kustomize-delete infrastructure/kubernetes/apps/payment-app
 
 dashboard-up: ensure-kind-context ## Load Grafana dashboards through the sidecar.
