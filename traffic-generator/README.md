@@ -15,7 +15,7 @@ Each iteration:
 
 Countries and card numbers are drawn uniformly at random from a fixed list (matching `scripts/generate-checkout-traffic.sh`); it does not currently bias traffic toward or away from any particular country or amount range.
 
-Deployed with 2 replicas, so two independent sessions run concurrently.
+Deployed with 5 replicas, so five independent sessions run concurrently.
 
 ## Configuration
 - `TARGET_URL` — base URL of the payment app (defaults to `http://payment-app`, the in-cluster Service name; both live in the `payment-checkout` namespace).
