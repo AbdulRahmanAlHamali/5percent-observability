@@ -1,0 +1,29 @@
+# Traffic Generator
+
+## Purpose
+This is a small Python worker that continuously drives synthetic checkout traffic against the payment app, so the lab's dashboards, metrics, and logs have something to show without a human clicking through the checkout form by hand.
+
+It has no HTTP surface of its own; it just loops.
+
+## Behavior
+Each iteration:
+
+1. `GET /checkout` — mints a fresh `checkout_id` and randomized price, same as a real page load.
+2. With a small probability (churn), the session stops here without submitting — simulating someone who loads the checkout page and abandons it.
+3. Otherwise, `POST /checkout` — submits that same `checkout_id` and amount back with a randomly chosen country and test card number, mirroring a real form submission.
+4. Sleeps a random delay before the next iteration.
+
+Countries and card numbers are drawn uniformly at random from a fixed list (matching `scripts/generate-checkout-traffic.sh`); it does not currently bias traffic toward or away from any particular country or amount range.
+
+Deployed with 5 replicas, so five independent sessions run concurrently.
+
+## Configuration
+- `TARGET_URL` — base URL of the payment app (defaults to `http://payment-app`, the in-cluster Service name; both live in the `payment-checkout` namespace).
+- `MIN_DELAY_SECONDS` / `MAX_DELAY_SECONDS` — random delay range between iterations (defaults `0.2` / `1.5`).
+- `REQUEST_TIMEOUT_SECONDS` — per-request timeout (default `5`).
+- `CHECKOUT_CHURN_RATE` — probability that a session abandons after `GET /checkout` instead of submitting (default `0.05`, i.e. 5%).
+
+A failed request is logged and the loop continues; it does not crash the process, so a transient payment-app restart doesn't take the generator down with it.
+
+## Deployment
+Deployed and torn down together with the payment app itself via `make payment-app-up` / `make payment-app-down` — it has no separate lifecycle, since it exists only to drive traffic into that app.
