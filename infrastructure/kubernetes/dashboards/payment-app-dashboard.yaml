@@ -27,7 +27,8 @@ data:
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "thresholds"
+                "mode": "fixed",
+                "fixedColor": "purple"
               },
               "custom": {
                 "drawStyle": "line",
@@ -36,7 +37,7 @@ data:
                 "pointSize": 5,
                 "showPoints": "never",
                 "thresholdsStyle": {
-                  "mode": "line"
+                  "mode": "dashed+area"
                 }
               },
               "thresholds": {
