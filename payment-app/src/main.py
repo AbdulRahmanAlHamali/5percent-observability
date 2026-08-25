@@ -9,7 +9,7 @@ from http import HTTPStatus
 from typing import Any
 
 from flask import Flask, Response, render_template, request
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, generate_latest
 from UnleashClient import UnleashClient
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -46,6 +46,14 @@ FRAUD_CHECK_FLAG = "payment-fraud-check-misconfigured"
 FRAUD_CHECK_COUNTRY = "SY"
 FRAUD_CHECK_AMOUNT_THRESHOLD = 500.0
 
+AUDIT_LOG_FLAG = "payment-audit-log-misconfigured"
+
+# Intended as a bounded ring buffer (last 500 transactions) so fraud-review
+# staff can look up recent activity without a database round trip. Ships as
+# a plain, never-trimmed list instead: every transaction after this flag is
+# enabled is retained forever.
+_TRANSACTION_AUDIT_LOG: list[dict[str, Any]] = []
+
 UNLEASH_URL = os.getenv("UNLEASH_URL")
 UNLEASH_API_TOKEN = os.getenv("UNLEASH_API_TOKEN")
 UNLEASH_APP_NAME = os.getenv("UNLEASH_APP_NAME", "payment-app")
@@ -71,6 +79,12 @@ def fraud_check_misconfigured() -> bool:
         return False
     return unleash_client.is_enabled(FRAUD_CHECK_FLAG)
 
+
+def audit_log_misconfigured() -> bool:
+    if unleash_client is None:
+        return False
+    return unleash_client.is_enabled(AUDIT_LOG_FLAG)
+
 CHECKOUT_VIEWS = Counter(
     "fivepercent_payment_checkout_views_total",
     "Total checkout page views.",
@@ -79,6 +93,10 @@ CHECKOUT_SUBMISSIONS = Counter(
     "fivepercent_payment_checkout_submissions_total",
     "Total checkout form submissions by status.",
     ["status"],
+)
+AUDIT_LOG_ENTRIES = Gauge(
+    "fivepercent_payment_audit_log_entries",
+    "Number of entries currently held in the in-memory transaction audit log.",
 )
 
 app = Flask(__name__)
@@ -185,6 +203,41 @@ def submit_checkout() -> str:
         status="accepted" if accepted else "rejected",
         rejection_reason=reason,
     )
+
+    if audit_log_misconfigured():
+        page_snapshot = render_template(
+            "checkout.html",
+            checkout_id=checkout_id,
+            product=product,
+            amount=f"{amount:.2f}",
+            currency=currency,
+            countries=COUNTRIES,
+        )
+        _TRANSACTION_AUDIT_LOG.append(
+            {
+                "checkout_id": checkout_id,
+                "recorded_at": datetime.now(timezone.utc).isoformat(),
+                "product": product,
+                "amount": amount,
+                "currency": currency,
+                "country": country,
+                "full_name": request.form.get("full_name", ""),
+                "email": request.form.get("email", ""),
+                "address_line1": request.form.get("address_line1", ""),
+                "city": request.form.get("city", ""),
+                "postal_code": request.form.get("postal_code", ""),
+                "card_number": card_number,
+                "card_expiry": request.form.get("card_expiry", ""),
+                # Raw CVV must never be retained past authorization; keeping it
+                # here is itself a second, independent bug.
+                "card_cvv": request.form.get("card_cvv", ""),
+                "ip": client_ip(),
+                "accepted": accepted,
+                "rejection_reason": reason,
+                "page_snapshot": page_snapshot,
+            }
+        )
+        AUDIT_LOG_ENTRIES.set(len(_TRANSACTION_AUDIT_LOG))
 
     return render_template(
         "result.html",
