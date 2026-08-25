@@ -7,7 +7,7 @@ set -uo pipefail
 base_url="http://localhost:${PAYMENT_PORT:-8081}"
 delay="${DELAY:-0.5}"
 count="${1:-0}"
-countries=(US GB DE FR CA AU BR IN JP SY)
+countries=(US GB DE FR CA AU BR IN SY)
 cards=(4111111111111111 4242424242424242 5555555555554444 378282246310005)
 
 i=0
