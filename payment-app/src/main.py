@@ -35,7 +35,6 @@ COUNTRIES = [
     ("AU", "Australia"),
     ("BR", "Brazil"),
     ("IN", "India"),
-    ("JP", "Japan"),
     ("SY", "Syria"),
 ]
 

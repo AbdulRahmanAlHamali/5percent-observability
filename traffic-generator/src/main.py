@@ -11,7 +11,7 @@ MAX_DELAY_SECONDS = float(os.getenv("MAX_DELAY_SECONDS", "1.5"))
 REQUEST_TIMEOUT_SECONDS = float(os.getenv("REQUEST_TIMEOUT_SECONDS", "5"))
 CHECKOUT_CHURN_RATE = float(os.getenv("CHECKOUT_CHURN_RATE", "0.05"))
 
-COUNTRIES = ["US", "GB", "DE", "FR", "CA", "AU", "BR", "IN", "JP", "SY"]
+COUNTRIES = ["US", "GB", "DE", "FR", "CA", "AU", "BR", "IN", "SY"]
 CARD_NUMBERS = ["4111111111111111", "4242424242424242", "5555555555554444", "378282246310005"]
 
 CHECKOUT_ID_PATTERN = re.compile(r'name="checkout_id" value="([^"]*)"')

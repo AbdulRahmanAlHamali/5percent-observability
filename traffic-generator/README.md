@@ -13,7 +13,7 @@ Each iteration:
 3. Otherwise, `POST /checkout` — submits that same `checkout_id` and amount back with a randomly chosen country and test card number, mirroring a real form submission.
 4. Sleeps a random delay before the next iteration.
 
-Countries and card numbers are drawn uniformly at random from a fixed list (matching `scripts/generate-checkout-traffic.sh`); it does not currently bias traffic toward or away from any particular country or amount range.
+Countries and card numbers are drawn uniformly at random from a fixed list (matching `scripts/generate-checkout-traffic.sh`). The list has one fewer country than a fully realistic set so Syria's traffic share is a little higher than an even split across ten countries would give; with too long a country list, the country-specific fraud-check misconfiguration gets diluted and is hard to see clearly in the dashboards.
 
 Deployed with 5 replicas, so five independent sessions run concurrently.
 
