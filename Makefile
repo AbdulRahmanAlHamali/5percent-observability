@@ -5,6 +5,7 @@ HELMFILE_PATH ?= infrastructure/kubernetes/helmfile.yaml
 LOGGING_HELMFILE_PATH ?= infrastructure/kubernetes/helmfile-loki.yaml
 FEATURE_FLAGS_HELMFILE_PATH ?= infrastructure/kubernetes/helmfile-feature-flags.yaml
 TRACING_HELMFILE_PATH ?= infrastructure/kubernetes/helmfile-tempo.yaml
+ENVOY_GATEWAY_HELMFILE_PATH ?= infrastructure/kubernetes/helmfile-envoy-gateway.yaml
 override KUBECTL := kubectl --context "$(KIND_CONTEXT)"
 APP_IMAGE ?= fivepercent-observability-sample-app:local
 APP_NAMESPACE ?= fivepercent-observability
@@ -18,7 +19,7 @@ ALERTMANAGER_PORT ?= 9093
 UNLEASH_PORT ?= 4242
 KUSTOMIZE_TARGET_PATH := $(word 2,$(MAKECMDGOALS))
 
-.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down feature-flags-up feature-flags-down tracing-up tracing-down app-build app-load app-up app-down payment-app-build payment-app-load traffic-generator-build traffic-generator-load payment-app-up payment-app-down payment-app-debug-build payment-app-debug-load dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward unleash-port-forward status clean kustomize-apply kustomize-delete
+.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down feature-flags-up feature-flags-down tracing-up tracing-down envoy-gateway-up envoy-gateway-down app-build app-load app-up app-down payment-app-build payment-app-load traffic-generator-build traffic-generator-load payment-app-up payment-app-down payment-app-debug-build payment-app-debug-load dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward unleash-port-forward status clean kustomize-apply kustomize-delete
 
 ifneq ($(filter kustomize-apply kustomize-delete,$(firstword $(MAKECMDGOALS))),)
   ifneq ($(KUSTOMIZE_TARGET_PATH),)
@@ -97,6 +98,16 @@ tracing-down: ensure-kind-context ## Remove optional Tempo tracing stack.
 		helmfile --kube-context "$(KIND_CONTEXT)" -f "$(TRACING_HELMFILE_PATH)" destroy; \
 	else \
 		echo "tempo release is already absent"; \
+	fi
+
+envoy-gateway-up: ensure-kind-context ## Install the Envoy Gateway controller.
+	helmfile --kube-context "$(KIND_CONTEXT)" -f "$(ENVOY_GATEWAY_HELMFILE_PATH)" sync
+
+envoy-gateway-down: ensure-kind-context ## Remove the Envoy Gateway controller.
+	@if helm --kube-context "$(KIND_CONTEXT)" -n envoy-gateway-system status envoy-gateway >/dev/null 2>&1; then \
+		helmfile --kube-context "$(KIND_CONTEXT)" -f "$(ENVOY_GATEWAY_HELMFILE_PATH)" destroy; \
+	else \
+		echo "envoy-gateway release is already absent"; \
 	fi
 
 app-build: ## Build the local sample app image.

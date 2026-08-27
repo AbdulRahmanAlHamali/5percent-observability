@@ -1,0 +1,13 @@
+---
+helmDefaults:
+  createNamespace: true
+
+releases:
+  - name: envoy-gateway
+    namespace: envoy-gateway-system
+    chart: oci://docker.io/envoyproxy/gateway-helm
+    version: v1.9.0
+    labels:
+      stack: envoy-gateway
+    values:
+      - ./helm-values/envoy-gateway-values.yaml

@@ -1,0 +1,19 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: payment-app
+  namespace: payment-checkout
+  labels:
+    app.kubernetes.io/name: payment-app
+    app.kubernetes.io/part-of: fivepercent-observability-lab
+spec:
+  parentRefs:
+    - name: payment-app
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: payment-app
+          port: 80

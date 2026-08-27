@@ -18,7 +18,7 @@ Countries and card numbers are drawn uniformly at random from a fixed list (matc
 Deployed with 5 replicas, so five independent sessions run concurrently.
 
 ## Configuration
-- `TARGET_URL` — base URL of the payment app (defaults to `http://payment-app`, the in-cluster Service name; both live in the `payment-checkout` namespace).
+- `TARGET_URL` — base URL to send checkout traffic to. Defaults to `http://payment-app`, the payment app's own in-cluster Service name, for standalone/local use. The Kubernetes Deployment overrides this to `http://payment-gateway.envoy-gateway-system.svc.cluster.local`, so traffic actually flows through the Envoy Gateway data plane in front of the payment app rather than hitting its Service directly — this is what makes edge-level metrics (request rate, status codes) reflect real generated traffic, the same way a real load balancer or ingress would.
 - `MIN_DELAY_SECONDS` / `MAX_DELAY_SECONDS` — random delay range between iterations (defaults `0.2` / `1.5`).
 - `REQUEST_TIMEOUT_SECONDS` — per-request timeout (default `5`).
 - `CHECKOUT_CHURN_RATE` — probability that a session abandons after `GET /checkout` instead of submitting (default `0.05`, i.e. 5%).
