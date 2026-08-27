@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-gateway
+  # Must match the namespace of the actual data-plane pod (envoy-gateway-system),
+  # not payment-checkout - Service selectors only match pods in their own
+  # namespace, regardless of label content.
+  namespace: envoy-gateway-system
+  labels:
+    app.kubernetes.io/name: payment-gateway
+    app.kubernetes.io/part-of: fivepercent-observability-lab
+spec:
+  type: ClusterIP
+  # Selects the same data-plane pods as the Service Envoy Gateway generates
+  # for the payment-app Gateway. That generated Service's name includes an
+  # internal hash that isn't stable to reference directly; these owning-gateway
+  # labels are tied to the Gateway resource's own identity instead.
+  selector:
+    app.kubernetes.io/name: envoy
+    app.kubernetes.io/component: proxy
+    gateway.envoyproxy.io/owning-gateway-name: payment-app
+    gateway.envoyproxy.io/owning-gateway-namespace: payment-checkout
+  ports:
+    - name: http
+      port: 80
+      targetPort: 10080
+    - name: metrics
+      port: 19001
+      targetPort: 19001

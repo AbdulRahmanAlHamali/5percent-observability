@@ -23,7 +23,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: TARGET_URL
-              value: "http://payment-app"
+              value: "http://payment-gateway.envoy-gateway-system.svc.cluster.local"
           resources:
             requests:
               cpu: 50m

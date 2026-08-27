@@ -5,4 +5,10 @@ resources:
   - deployment.yaml
   - service.yaml
   - servicemonitor.yaml
+  - envoyproxy.yaml
+  - gatewayclass.yaml
+  - gateway.yaml
+  - httproute.yaml
+  - gateway-service.yaml
+  - gateway-servicemonitor.yaml
   - traffic-generator-deployment.yaml
