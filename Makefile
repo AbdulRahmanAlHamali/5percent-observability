@@ -19,7 +19,7 @@ ALERTMANAGER_PORT ?= 9093
 UNLEASH_PORT ?= 4242
 KUSTOMIZE_TARGET_PATH := $(word 2,$(MAKECMDGOALS))
 
-.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down feature-flags-up feature-flags-down tracing-up tracing-down envoy-gateway-up envoy-gateway-down app-build app-load app-up app-down payment-app-build payment-app-load traffic-generator-build traffic-generator-load payment-app-up payment-app-down payment-app-debug-build payment-app-debug-load dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward unleash-port-forward status clean kustomize-apply kustomize-delete
+.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down feature-flags-up feature-flags-down tracing-up tracing-down app-build app-load app-up app-down payment-app-build payment-app-load traffic-generator-build traffic-generator-load payment-app-up payment-app-down payment-app-debug-build payment-app-debug-load dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward unleash-port-forward status clean kustomize-apply kustomize-delete
 
 ifneq ($(filter kustomize-apply kustomize-delete,$(firstword $(MAKECMDGOALS))),)
   ifneq ($(KUSTOMIZE_TARGET_PATH),)
@@ -100,16 +100,6 @@ tracing-down: ensure-kind-context ## Remove optional Tempo tracing stack.
 		echo "tempo release is already absent"; \
 	fi
 
-envoy-gateway-up: ensure-kind-context ## Install the Envoy Gateway controller.
-	helmfile --kube-context "$(KIND_CONTEXT)" -f "$(ENVOY_GATEWAY_HELMFILE_PATH)" sync
-
-envoy-gateway-down: ensure-kind-context ## Remove the Envoy Gateway controller.
-	@if helm --kube-context "$(KIND_CONTEXT)" -n envoy-gateway-system status envoy-gateway >/dev/null 2>&1; then \
-		helmfile --kube-context "$(KIND_CONTEXT)" -f "$(ENVOY_GATEWAY_HELMFILE_PATH)" destroy; \
-	else \
-		echo "envoy-gateway release is already absent"; \
-	fi
-
 app-build: ## Build the local sample app image.
 	docker build -t "$(APP_IMAGE)" ./app
 
@@ -140,11 +130,17 @@ traffic-generator-build: ## Build the local traffic generator image.
 traffic-generator-load: ## Load the traffic generator image into kind.
 	kind load docker-image "$(TRAFFIC_GENERATOR_IMAGE)" --name "$(KIND_CLUSTER_NAME)"
 
-payment-app-up: ensure-kind-context payment-app-build payment-app-load traffic-generator-build traffic-generator-load ## Deploy the payment checkout app and its traffic generator.
+payment-app-up: ensure-kind-context payment-app-build payment-app-load traffic-generator-build traffic-generator-load ## Deploy the payment checkout app, its traffic generator, and the Envoy Gateway it routes through.
+	helmfile --kube-context "$(KIND_CONTEXT)" -f "$(ENVOY_GATEWAY_HELMFILE_PATH)" sync
 	$(MAKE) kustomize-apply infrastructure/kubernetes/apps/payment-app
 
-payment-app-down: ensure-kind-context ## Delete the payment checkout app and its traffic generator.
+payment-app-down: ensure-kind-context ## Delete the payment checkout app, its traffic generator, and the Envoy Gateway it routes through.
 	$(MAKE) kustomize-delete infrastructure/kubernetes/apps/payment-app
+	@if helm --kube-context "$(KIND_CONTEXT)" -n envoy-gateway-system status envoy-gateway >/dev/null 2>&1; then \
+		helmfile --kube-context "$(KIND_CONTEXT)" -f "$(ENVOY_GATEWAY_HELMFILE_PATH)" destroy; \
+	else \
+		echo "envoy-gateway release is already absent"; \
+	fi
 
 dashboard-up: ensure-kind-context ## Load Grafana dashboards through the sidecar.
 	$(MAKE) kustomize-apply infrastructure/kubernetes/dashboards
