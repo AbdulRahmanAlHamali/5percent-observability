@@ -10,6 +10,9 @@ MIN_DELAY_SECONDS = float(os.getenv("MIN_DELAY_SECONDS", "0.2"))
 MAX_DELAY_SECONDS = float(os.getenv("MAX_DELAY_SECONDS", "1.5"))
 REQUEST_TIMEOUT_SECONDS = float(os.getenv("REQUEST_TIMEOUT_SECONDS", "5"))
 CHECKOUT_CHURN_RATE = float(os.getenv("CHECKOUT_CHURN_RATE", "0.05"))
+BULK_ORDER_RATE = float(os.getenv("BULK_ORDER_RATE", "0.005"))
+BULK_ORDER_MIN_QUANTITY = int(os.getenv("BULK_ORDER_MIN_QUANTITY", "500000"))
+BULK_ORDER_MAX_QUANTITY = int(os.getenv("BULK_ORDER_MAX_QUANTITY", "2000000"))
 
 COUNTRIES = ["US", "GB", "DE", "FR", "CA", "AU", "BR", "IN", "SY"]
 CARD_NUMBERS = ["4111111111111111", "4242424242424242", "5555555555554444", "378282246310005"]
@@ -39,20 +42,32 @@ def run_one_checkout(session: requests.Session) -> None:
         log(f"abandoned  {checkout_id[:8]}  ${amount}")
         return
 
+    data = {
+        "checkout_id": checkout_id,
+        "amount": amount,
+        "currency": "USD",
+        "country": random.choice(COUNTRIES),
+        "card_number": random.choice(CARD_NUMBERS),
+    }
+
+    # Simulates a rare, misbehaving wholesale-integration client hitting this
+    # same checkout endpoint directly with a bulk order instead of going
+    # through the normal single-item UI flow.
+    bulk_order = random.random() < BULK_ORDER_RATE
+    if bulk_order:
+        data["quantity"] = random.randint(BULK_ORDER_MIN_QUANTITY, BULK_ORDER_MAX_QUANTITY)
+
     post_response = session.post(
         f"{TARGET_URL}/checkout",
-        data={
-            "checkout_id": checkout_id,
-            "amount": amount,
-            "currency": "USD",
-            "country": random.choice(COUNTRIES),
-            "card_number": random.choice(CARD_NUMBERS),
-        },
+        data=data,
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
     post_response.raise_for_status()
 
-    log(f"HTTP {post_response.status_code}  {checkout_id[:8]}  ${amount}")
+    if bulk_order:
+        log(f"HTTP {post_response.status_code}  {checkout_id[:8]}  ${amount}  bulk qty={data['quantity']}")
+    else:
+        log(f"HTTP {post_response.status_code}  {checkout_id[:8]}  ${amount}")
 
 
 def main() -> None:

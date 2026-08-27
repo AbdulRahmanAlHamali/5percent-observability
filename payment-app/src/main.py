@@ -3,6 +3,8 @@ import logging
 import os
 import random
 import sys
+import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -54,6 +56,16 @@ AUDIT_LOG_FLAG = "payment-audit-log-misconfigured"
 # enabled is retained forever.
 _TRANSACTION_AUDIT_LOG: list[dict[str, Any]] = []
 
+BULK_ORDER_FLAG = "payment-bulk-order-fulfillment-enabled"
+BULK_ORDER_CHUNK_SIZE = 2_000
+BULK_ORDER_CHUNK_DELAY_SECONDS = 0.1
+
+# A single accepted order should never need more than a few dozen units, but
+# nothing here checks that: `quantity` is taken from the request as-is. A
+# wholesale-integration client sending an inflated value causes this list to
+# grow by one entry per unit with no upper bound.
+_FULFILLMENT_MANIFEST: list[dict[str, Any]] = []
+
 UNLEASH_URL = os.getenv("UNLEASH_URL")
 UNLEASH_API_TOKEN = os.getenv("UNLEASH_API_TOKEN")
 UNLEASH_APP_NAME = os.getenv("UNLEASH_APP_NAME", "payment-app")
@@ -85,6 +97,13 @@ def audit_log_misconfigured() -> bool:
         return False
     return unleash_client.is_enabled(AUDIT_LOG_FLAG)
 
+
+def bulk_order_fulfillment_enabled() -> bool:
+    if unleash_client is None:
+        return False
+    return unleash_client.is_enabled(BULK_ORDER_FLAG)
+
+
 CHECKOUT_VIEWS = Counter(
     "fivepercent_payment_checkout_views_total",
     "Total checkout page views.",
@@ -110,6 +129,30 @@ def log_event(event: str, level: str = "info", **fields: Any) -> None:
     }
     payload.update(fields)
     getattr(event_logger, level)(json.dumps(payload))
+
+
+def _process_bulk_order(checkout_id: str, product: str, quantity: int) -> None:
+    processed = 0
+    while processed < quantity:
+        chunk = min(BULK_ORDER_CHUNK_SIZE, quantity - processed)
+        for offset in range(chunk):
+            _FULFILLMENT_MANIFEST.append(
+                {
+                    "checkout_id": checkout_id,
+                    "unit_id": f"{checkout_id}-{processed + offset}",
+                    "product": product,
+                    "serial": uuid.uuid4().hex,
+                    "packed_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        processed += chunk
+        log_event(
+            "bulk_order_manifest_chunk_processed",
+            checkout_id=checkout_id,
+            quantity=quantity,
+            units_processed=processed,
+        )
+        time.sleep(BULK_ORDER_CHUNK_DELAY_SECONDS)
 
 
 def generate_price() -> float:
@@ -186,6 +229,14 @@ def submit_checkout() -> str:
     except ValueError:
         amount = 0.0
 
+    # Undocumented: only a wholesale-integration client sending `quantity`
+    # directly to this endpoint ever sets this above 1 - the checkout UI has
+    # no field for it.
+    try:
+        quantity = max(1, int(request.form.get("quantity", "1")))
+    except ValueError:
+        quantity = 1
+
     fraud_check_bug_enabled = fraud_check_misconfigured()
     accepted, reason = evaluate_payment(amount, country, card_number, fraud_check_bug_enabled)
     CHECKOUT_SUBMISSIONS.labels("succeeded" if accepted else "failed").inc()
@@ -202,7 +253,15 @@ def submit_checkout() -> str:
         card_last4=card_last4,
         status="accepted" if accepted else "rejected",
         rejection_reason=reason,
+        quantity=quantity,
     )
+
+    if accepted and quantity > 1 and bulk_order_fulfillment_enabled():
+        threading.Thread(
+            target=_process_bulk_order,
+            args=(checkout_id, product, quantity),
+            daemon=True,
+        ).start()
 
     if audit_log_misconfigured():
         page_snapshot = render_template(
