@@ -148,6 +148,10 @@
               <input id="card_cvv" name="card_cvv" type="text" inputmode="numeric" pattern="[0-9]{3,4}" maxlength="4" required>
             </div>
           </div>
+          <div class="field">
+            <label for="promo_code">Promo code (optional)</label>
+            <input id="promo_code" name="promo_code" type="text" maxlength="20" placeholder="WELCOME10">
+          </div>
         </fieldset>
 
         <button type="submit">Pay {{ currency }} {{ amount }}</button>

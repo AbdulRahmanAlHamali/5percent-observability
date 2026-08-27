@@ -1,8 +1,6 @@
 flask
-prometheus-client
-requests
 UnleashClient
 opentelemetry-distro
 opentelemetry-exporter-otlp
 opentelemetry-instrumentation-flask
-opentelemetry-instrumentation-requests
+opentelemetry-instrumentation-sqlite3

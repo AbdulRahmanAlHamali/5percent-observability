@@ -13,6 +13,8 @@ CHECKOUT_CHURN_RATE = float(os.getenv("CHECKOUT_CHURN_RATE", "0.05"))
 
 COUNTRIES = ["US", "GB", "DE", "FR", "CA", "AU", "BR", "IN", "SY"]
 CARD_NUMBERS = ["4111111111111111", "4242424242424242", "5555555555554444", "378282246310005"]
+PROMO_CODES = ["WELCOME10", "SUMMER15", "FREESHIP", "VIP20"]
+PROMO_CODE_RATE = float(os.getenv("PROMO_CODE_RATE", "0.15"))
 
 CHECKOUT_ID_PATTERN = re.compile(r'name="checkout_id" value="([^"]*)"')
 AMOUNT_PATTERN = re.compile(r'name="amount" value="([^"]*)"')
@@ -39,15 +41,19 @@ def run_one_checkout(session: requests.Session) -> None:
         log(f"abandoned  {checkout_id[:8]}  ${amount}")
         return
 
+    form_data = {
+        "checkout_id": checkout_id,
+        "amount": amount,
+        "currency": "USD",
+        "country": random.choice(COUNTRIES),
+        "card_number": random.choice(CARD_NUMBERS),
+    }
+    if random.random() < PROMO_CODE_RATE:
+        form_data["promo_code"] = random.choice(PROMO_CODES)
+
     post_response = session.post(
         f"{TARGET_URL}/checkout",
-        data={
-            "checkout_id": checkout_id,
-            "amount": amount,
-            "currency": "USD",
-            "country": random.choice(COUNTRIES),
-            "card_number": random.choice(CARD_NUMBERS),
-        },
+        data=form_data,
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
     post_response.raise_for_status()

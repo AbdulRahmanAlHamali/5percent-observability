@@ -43,7 +43,10 @@ flowchart TD
 
   helmfile --> tempo["optional Tempo<br>tracing namespace"]
   kustomize --> paymentApp["payment checkout app<br>payment-checkout namespace"]
+  kustomize --> promoService["promo service<br>payment-checkout namespace"]
+  paymentApp -->|"HTTP, trace context propagated"| promoService
   paymentApp --> spans["OTLP spans<br>OpenTelemetry auto-instrumentation"]
+  promoService --> spans
   spans --> tempo
   grafanaDatasources -.-> tempo
 ```

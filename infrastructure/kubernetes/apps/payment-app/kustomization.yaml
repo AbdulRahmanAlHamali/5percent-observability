@@ -6,3 +6,5 @@ resources:
   - service.yaml
   - servicemonitor.yaml
   - traffic-generator-deployment.yaml
+  - promo-service-deployment.yaml
+  - promo-service-service.yaml
