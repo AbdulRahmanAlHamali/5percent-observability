@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: payment-app
+  name: promo-service
   namespace: payment-checkout
   labels:
-    app.kubernetes.io/name: payment-app
+    app.kubernetes.io/name: promo-service
     app.kubernetes.io/part-of: fivepercent-observability-lab
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: payment-app
+      app.kubernetes.io/name: promo-service
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: payment-app
+        app.kubernetes.io/name: promo-service
         app.kubernetes.io/part-of: fivepercent-observability-lab
     spec:
       containers:
-        - name: payment-app
-          image: fivepercent-observability-payment-app:local
+        - name: promo-service
+          image: fivepercent-observability-promo-service:local
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -32,13 +32,11 @@ spec:
             - name: UNLEASH_URL
               value: "http://unleash.feature-flags.svc.cluster.local:4242/api"
             - name: UNLEASH_APP_NAME
-              value: payment-app
+              value: promo-service
             - name: UNLEASH_API_TOKEN
               value: "default:development.unleash-insecure-payment-app-token"
-            - name: PROMO_SERVICE_URL
-              value: "http://promo-service"
             - name: OTEL_SERVICE_NAME
-              value: payment-app
+              value: promo-service
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: http://tempo.tracing.svc.cluster.local:4317
             - name: OTEL_EXPORTER_OTLP_PROTOCOL

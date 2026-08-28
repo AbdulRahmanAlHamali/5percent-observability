@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: promo-service
+  namespace: payment-checkout
+  labels:
+    app.kubernetes.io/name: promo-service
+    app.kubernetes.io/part-of: fivepercent-observability-lab
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: promo-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

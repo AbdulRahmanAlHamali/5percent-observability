@@ -1,0 +1,8 @@
+flask
+UnleashClient
+opentelemetry-distro
+opentelemetry-exporter-otlp
+opentelemetry-instrumentation-flask
+# TRACING STEP 1: uncomment to auto-create a db span for every SQLite query,
+# with the SQL text attached as db.statement. No application code changes.
+# opentelemetry-instrumentation-sqlite3

@@ -3,13 +3,15 @@ import logging
 import os
 import random
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from http import HTTPStatus
 from typing import Any
 
-from flask import Flask, Response, render_template, request
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, generate_latest
+import requests
+from flask import Flask, Response, g, render_template, request
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from UnleashClient import UnleashClient
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -85,6 +87,29 @@ def audit_log_misconfigured() -> bool:
         return False
     return unleash_client.is_enabled(AUDIT_LOG_FLAG)
 
+
+PROMO_SERVICE_URL = os.getenv("PROMO_SERVICE_URL")
+PROMO_TIMEOUT_SECONDS = float(os.getenv("PROMO_TIMEOUT_SECONDS", "3"))
+
+
+def evaluate_promo_code(code: str) -> float:
+    """Return the discount percent for a promo code, or 0.0 if the code is
+    empty, invalid, or the promo service cannot be reached. Checkout must
+    never fail because the discount lookup did."""
+    if not code or not PROMO_SERVICE_URL:
+        return 0.0
+    try:
+        response = requests.post(
+            f"{PROMO_SERVICE_URL}/evaluate",
+            json={"code": code},
+            timeout=PROMO_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return float(response.json().get("discount_percent", 0.0))
+    except (requests.RequestException, ValueError):
+        logger.warning("Promo service lookup failed; continuing without discount")
+        return 0.0
+
 CHECKOUT_VIEWS = Counter(
     "fivepercent_payment_checkout_views_total",
     "Total checkout page views.",
@@ -98,8 +123,26 @@ AUDIT_LOG_ENTRIES = Gauge(
     "fivepercent_payment_audit_log_entries",
     "Number of entries currently held in the in-memory transaction audit log.",
 )
+REQUEST_LATENCY = Histogram(
+    "fivepercent_payment_http_request_duration_seconds",
+    "HTTP request duration for the payment app.",
+    ["method", "endpoint"],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5),
+)
 
 app = Flask(__name__)
+
+
+@app.before_request
+def before_request() -> None:
+    g.start_time = time.perf_counter()
+
+
+@app.after_request
+def after_request(response: Response) -> Response:
+    endpoint = request.endpoint or "unknown"
+    REQUEST_LATENCY.labels(request.method, endpoint).observe(time.perf_counter() - g.start_time)
+    return response
 
 
 def log_event(event: str, level: str = "info", **fields: Any) -> None:
@@ -185,6 +228,11 @@ def submit_checkout() -> str:
         amount = float(request.form.get("amount", "0"))
     except ValueError:
         amount = 0.0
+
+    promo_code = request.form.get("promo_code", "").strip()
+    discount_percent = evaluate_promo_code(promo_code)
+    if discount_percent > 0:
+        amount = round(amount * (1 - discount_percent / 100), 2)
 
     fraud_check_bug_enabled = fraud_check_misconfigured()
     accepted, reason = evaluate_payment(amount, country, card_number, fraud_check_bug_enabled)

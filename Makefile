@@ -12,6 +12,7 @@ APP_NAMESPACE ?= fivepercent-observability
 PAYMENT_APP_IMAGE ?= fivepercent-observability-payment-app:local
 PAYMENT_APP_NAMESPACE ?= payment-checkout
 TRAFFIC_GENERATOR_IMAGE ?= fivepercent-observability-traffic-generator:local
+PROMO_SERVICE_IMAGE ?= fivepercent-observability-promo-service:local
 PAYMENT_APP_DEBUG_IMAGE ?= fivepercent-observability-payment-app:local-debug
 GRAFANA_PORT ?= 3000
 PROMETHEUS_PORT ?= 9090
@@ -19,7 +20,7 @@ ALERTMANAGER_PORT ?= 9093
 UNLEASH_PORT ?= 4242
 KUSTOMIZE_TARGET_PATH := $(word 2,$(MAKECMDGOALS))
 
-.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down feature-flags-up feature-flags-down tracing-up tracing-down app-build app-load app-up app-down payment-app-build payment-app-load traffic-generator-build traffic-generator-load payment-app-up payment-app-down payment-app-debug-build payment-app-debug-load dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward unleash-port-forward status clean kustomize-apply kustomize-delete
+.PHONY: help install-prereqs check-prereqs ensure-kind-context kind-up kind-down monitoring-up monitoring-down logging-up logging-down feature-flags-up feature-flags-down tracing-up tracing-down app-build app-load app-up app-down payment-app-build payment-app-load traffic-generator-build traffic-generator-load promo-service-build promo-service-load payment-app-up payment-app-down payment-app-debug-build payment-app-debug-load dashboard-up dashboard-down alerts-up alerts-down grafana-port-forward prometheus-port-forward alertmanager-port-forward unleash-port-forward status clean kustomize-apply kustomize-delete
 
 ifneq ($(filter kustomize-apply kustomize-delete,$(firstword $(MAKECMDGOALS))),)
   ifneq ($(KUSTOMIZE_TARGET_PATH),)
@@ -130,7 +131,13 @@ traffic-generator-build: ## Build the local traffic generator image.
 traffic-generator-load: ## Load the traffic generator image into kind.
 	kind load docker-image "$(TRAFFIC_GENERATOR_IMAGE)" --name "$(KIND_CLUSTER_NAME)"
 
-payment-app-up: ensure-kind-context payment-app-build payment-app-load traffic-generator-build traffic-generator-load ## Deploy the payment checkout app, its traffic generator, and the Envoy Gateway it routes through.
+promo-service-build: ## Build the local promo service image.
+	docker build -t "$(PROMO_SERVICE_IMAGE)" ./promo-service
+
+promo-service-load: ## Load the promo service image into kind.
+	kind load docker-image "$(PROMO_SERVICE_IMAGE)" --name "$(KIND_CLUSTER_NAME)"
+
+payment-app-up: ensure-kind-context payment-app-build payment-app-load traffic-generator-build traffic-generator-load promo-service-build promo-service-load ## Deploy the payment checkout app, traffic generator, promo service, and the Envoy Gateway it routes through.
 	helmfile --kube-context "$(KIND_CONTEXT)" -f "$(ENVOY_GATEWAY_HELMFILE_PATH)" sync
 	$(MAKE) kustomize-apply infrastructure/kubernetes/apps/payment-app
 
