@@ -143,6 +143,8 @@ The public Loki migration documentation identifies the `6.55.0` Loki chart as th
 
 The optional tracing stack pins Grafana Tempo chart `2.2.4` from `https://grafana-community.github.io/helm-charts`. The Tempo chart in the Grafana repository is marked deprecated, so the community repository is the maintained source.
 
+`payment-app` and `promo-service` both set `OTEL_TRACES_SAMPLER=parentbased_traceidratio` with a `0.2` ratio, so only about 20% of checkout requests are head-sampled into a trace. `payment-app` originates the trace for every incoming request, so its ratio is what actually governs the lab's overall sampling rate; `promo-service` is only ever called as a child span within that same trace, so its own ratio never overrides an already-sampled (or already-dropped) parent decision.
+
 ## Resource Model
 
 The lab uses memory limits and CPU requests only.
