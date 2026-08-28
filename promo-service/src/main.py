@@ -4,13 +4,18 @@ import sqlite3
 import time
 
 from flask import Flask, jsonify, request
-from opentelemetry import trace
 from UnleashClient import UnleashClient
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("fivepercent.promo_service")
 
-tracer = trace.get_tracer("fivepercent.promo_service")
+# TRACING STEP 2: create this service's tracer. Spans started with it nest
+# under whatever span is currently active (the auto-created Flask request
+# span, for request-handling code). Uncomment both lines.
+#
+# from opentelemetry import trace
+#
+# tracer = trace.get_tracer("fivepercent.promo_service")
 
 RULE_LOOKUP_FLAG = "promo-rule-lookup-misconfigured"
 
@@ -72,22 +77,36 @@ db.commit()
 app = Flask(__name__)
 
 
+# Queries in the request path go through db.cursor(): under
+# opentelemetry-instrumentation-sqlite3 (TRACING STEP 1), Connection.execute()
+# returns a raw, untraced cursor and its query would produce no span.
 def fetch_rule(rule_id: int) -> float:
-    with tracer.start_as_current_span("fetch_rule") as span:
-        span.set_attribute("promo.rule_id", rule_id)
-        time.sleep(RULE_STORE_RTT_SECONDS)
-        # Connection.execute() bypasses the instrumented cursor; go through
-        # cursor() so the query produces a db span.
-        row = db.cursor().execute("SELECT discount_percent FROM rules WHERE id = ?", (rule_id,)).fetchone()
+    # TRACING STEP 4: one span per rule fetch, so the per-rule cost is
+    # visible in the trace instead of an unexplained gap. Replace the two
+    # active lines below with this block:
+    #
+    # with tracer.start_as_current_span("fetch_rule") as span:
+    #     span.set_attribute("promo.rule_id", rule_id)
+    #     time.sleep(RULE_STORE_RTT_SECONDS)
+    #     row = db.cursor().execute("SELECT discount_percent FROM rules WHERE id = ?", (rule_id,)).fetchone()
+    time.sleep(RULE_STORE_RTT_SECONDS)
+    row = db.cursor().execute("SELECT discount_percent FROM rules WHERE id = ?", (rule_id,)).fetchone()
     return row[0] if row else 0.0
 
 
 def fetch_rules_batch(rule_ids: list[int]) -> list[float]:
-    with tracer.start_as_current_span("fetch_rules_batch") as span:
-        span.set_attribute("promo.rule_count", len(rule_ids))
-        time.sleep(RULE_STORE_RTT_SECONDS)
-        placeholders = ",".join("?" * len(rule_ids))
-        rows = db.cursor().execute(f"SELECT discount_percent FROM rules WHERE id IN ({placeholders})", rule_ids).fetchall()
+    # TRACING STEP 5: the same treatment for the batched path, so fast
+    # traces show one wide span where slow traces show many. Replace the
+    # three active lines below with this block:
+    #
+    # with tracer.start_as_current_span("fetch_rules_batch") as span:
+    #     span.set_attribute("promo.rule_count", len(rule_ids))
+    #     time.sleep(RULE_STORE_RTT_SECONDS)
+    #     placeholders = ",".join("?" * len(rule_ids))
+    #     rows = db.cursor().execute(f"SELECT discount_percent FROM rules WHERE id IN ({placeholders})", rule_ids).fetchall()
+    time.sleep(RULE_STORE_RTT_SECONDS)
+    placeholders = ",".join("?" * len(rule_ids))
+    rows = db.cursor().execute(f"SELECT discount_percent FROM rules WHERE id IN ({placeholders})", rule_ids).fetchall()
     return [row[0] for row in rows]
 
 
@@ -101,10 +120,16 @@ def evaluate():
     payload = request.get_json(silent=True) or {}
     code = str(payload.get("code", "")).strip().upper()
 
-    with tracer.start_as_current_span("resolve_code") as span:
-        span.set_attribute("promo.code", code)
-        rule_ids = [row[0] for row in db.cursor().execute("SELECT rule_id FROM code_rules WHERE code = ?", (code,)).fetchall()]
-        span.set_attribute("promo.rule_count", len(rule_ids))
+    # TRACING STEP 3: name the code-resolution phase and record WHICH promo
+    # code this request carried. promo.code is the attribute that lets slow
+    # and fast traces be told apart; it exists nowhere else in the system.
+    # Replace the active line below with this block:
+    #
+    # with tracer.start_as_current_span("resolve_code") as span:
+    #     span.set_attribute("promo.code", code)
+    #     rule_ids = [row[0] for row in db.cursor().execute("SELECT rule_id FROM code_rules WHERE code = ?", (code,)).fetchall()]
+    #     span.set_attribute("promo.rule_count", len(rule_ids))
+    rule_ids = [row[0] for row in db.cursor().execute("SELECT rule_id FROM code_rules WHERE code = ?", (code,)).fetchall()]
 
     if not rule_ids:
         return jsonify({"code": code, "valid": False, "discount_percent": 0.0, "rule_count": 0})

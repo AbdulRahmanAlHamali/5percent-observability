@@ -11,3 +11,7 @@ rule fetch pays a simulated round trip (`RULE_STORE_RTT_SECONDS`, default
 The `promo-rule-lookup-misconfigured` Unleash flag switches rule loading from
 one batched query to one query per rule. It defaults to off, and to off when
 Unleash is unreachable.
+
+The service ships with auto-instrumentation only; its internals are
+deliberately invisible to traces. `tracing-playbook.md` walks through adding
+the manual spans (search the source for `TRACING STEP`).
