@@ -1,0 +1,16 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: envoy-config
+  namespace: envoy-gateway-system
+  labels:
+    app.kubernetes.io/part-of: fivepercent-observability-lab
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        # kind has no cloud load balancer; traffic reaches the data plane
+        # from inside the cluster (the traffic generator), so ClusterIP is
+        # enough and avoids a permanently-pending LoadBalancer IP.
+        type: ClusterIP

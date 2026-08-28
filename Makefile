@@ -5,6 +5,7 @@ HELMFILE_PATH ?= infrastructure/kubernetes/helmfile.yaml
 LOGGING_HELMFILE_PATH ?= infrastructure/kubernetes/helmfile-loki.yaml
 FEATURE_FLAGS_HELMFILE_PATH ?= infrastructure/kubernetes/helmfile-feature-flags.yaml
 TRACING_HELMFILE_PATH ?= infrastructure/kubernetes/helmfile-tempo.yaml
+ENVOY_GATEWAY_HELMFILE_PATH ?= infrastructure/kubernetes/helmfile-envoy-gateway.yaml
 override KUBECTL := kubectl --context "$(KIND_CONTEXT)"
 APP_IMAGE ?= fivepercent-observability-sample-app:local
 APP_NAMESPACE ?= fivepercent-observability
@@ -136,11 +137,17 @@ promo-service-build: ## Build the local promo service image.
 promo-service-load: ## Load the promo service image into kind.
 	kind load docker-image "$(PROMO_SERVICE_IMAGE)" --name "$(KIND_CLUSTER_NAME)"
 
-payment-app-up: ensure-kind-context payment-app-build payment-app-load traffic-generator-build traffic-generator-load promo-service-build promo-service-load ## Deploy the payment checkout app, its traffic generator, and the promo service.
+payment-app-up: ensure-kind-context payment-app-build payment-app-load traffic-generator-build traffic-generator-load promo-service-build promo-service-load ## Deploy the payment checkout app, traffic generator, promo service, and the Envoy Gateway it routes through.
+	helmfile --kube-context "$(KIND_CONTEXT)" -f "$(ENVOY_GATEWAY_HELMFILE_PATH)" sync
 	$(MAKE) kustomize-apply infrastructure/kubernetes/apps/payment-app
 
-payment-app-down: ensure-kind-context ## Delete the payment checkout app and its traffic generator.
+payment-app-down: ensure-kind-context ## Delete the payment checkout app, its traffic generator, and the Envoy Gateway it routes through.
 	$(MAKE) kustomize-delete infrastructure/kubernetes/apps/payment-app
+	@if helm --kube-context "$(KIND_CONTEXT)" -n envoy-gateway-system status envoy-gateway >/dev/null 2>&1; then \
+		helmfile --kube-context "$(KIND_CONTEXT)" -f "$(ENVOY_GATEWAY_HELMFILE_PATH)" destroy; \
+	else \
+		echo "envoy-gateway release is already absent"; \
+	fi
 
 dashboard-up: ensure-kind-context ## Load Grafana dashboards through the sidecar.
 	$(MAKE) kustomize-apply infrastructure/kubernetes/dashboards
