@@ -51,6 +51,15 @@ spec:
               value: none
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.namespace=fivepercent-observability-lab,deployment.environment=lab
+            # Head sampling: this app originates the trace for every incoming
+            # request (no parent context arrives from the traffic generator),
+            # so this ratio is what actually decides the lab's overall
+            # sampling rate - promo-service's own sampler never gets a say
+            # once a parent decision exists.
+            - name: OTEL_TRACES_SAMPLER
+              value: parentbased_traceidratio
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "0.2"
           readinessProbe:
             httpGet:
               path: /healthz

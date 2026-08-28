@@ -49,6 +49,15 @@ spec:
               value: none
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.namespace=fivepercent-observability-lab,deployment.environment=lab
+            # Matches payment-app's sampler so this service's own probe hits
+            # and any directly-received (unparented) requests are sampled at
+            # the same rate; requests arriving with a parent trace already
+            # decided by payment-app ignore this ratio and follow that
+            # decision instead.
+            - name: OTEL_TRACES_SAMPLER
+              value: parentbased_traceidratio
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "0.2"
           readinessProbe:
             httpGet:
               path: /healthz
