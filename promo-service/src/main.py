@@ -12,9 +12,7 @@ logger = logging.getLogger("fivepercent.promo_service")
 # TRACING STEP 2: create this service's tracer. Spans started with it nest
 # under whatever span is currently active (the auto-created Flask request
 # span, for request-handling code). Uncomment both lines.
-#
 # from opentelemetry import trace
-#
 # tracer = trace.get_tracer("fivepercent.promo_service")
 
 RULE_LOOKUP_FLAG = "promo-rule-lookup-misconfigured"
@@ -91,6 +89,7 @@ def fetch_rule(rule_id: int) -> float:
     #     row = db.cursor().execute("SELECT discount_percent FROM rules WHERE id = ?", (rule_id,)).fetchone()
     time.sleep(RULE_STORE_RTT_SECONDS)
     row = db.cursor().execute("SELECT discount_percent FROM rules WHERE id = ?", (rule_id,)).fetchone()
+
     return row[0] if row else 0.0
 
 
@@ -107,6 +106,7 @@ def fetch_rules_batch(rule_ids: list[int]) -> list[float]:
     time.sleep(RULE_STORE_RTT_SECONDS)
     placeholders = ",".join("?" * len(rule_ids))
     rows = db.cursor().execute(f"SELECT discount_percent FROM rules WHERE id IN ({placeholders})", rule_ids).fetchall()
+
     return [row[0] for row in rows]
 
 

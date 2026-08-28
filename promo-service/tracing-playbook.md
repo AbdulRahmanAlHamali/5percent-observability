@@ -33,8 +33,7 @@ grep -rn "TRACING STEP" promo-service/
 
 5. **Redeploy**:
    ```bash
-   make promo-service-build promo-service-load
-   kubectl --context kind-fivepercent-observability -n payment-checkout rollout restart deployment/promo-service
+   ./scripts/redeploy-promo-service.sh
    ```
 
 6. **Re-trace** — rerun the step-3 query (search lags ingestion ~1min).
